@@ -276,7 +276,9 @@ def _situacao(conversa, passo=None, estado=None):
                 "Se a mensagem for a resposta, use abrir_ticket preenchendo esse campo.")
     return {
         Conversa.Modo.DUVIDA: "O cliente escolheu 'Chat de dúvida': priorize responder pelo FAQ.",
-        Conversa.Modo.CONVERSA: "O cliente escolheu 'Chat de conversa': converse livremente, sem inventar dados da empresa.",
+        Conversa.Modo.CONVERSA: ("O cliente escolheu 'Chat de conversa': é um papo livre. Responda de verdade a perguntas gerais de "
+                                  "qualquer assunto (use conversa_livre, até 5 frases); não recuse por fugir do tema da empresa. "
+                                  "Só não invente dados da empresa."),
     }.get(conversa.modo, "O cliente está no menu principal.")
 
 
