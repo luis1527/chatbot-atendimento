@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "bot",       # cérebro do bot: Telegram, Gemini, FAQ
     "painel",    # site dos funcionários: fila, conversas, tickets, dashboard
     "webchat",   # chat público no site ("Chat teste")
+    "chaves",    # controle de chaves: usuários, salas, chaves, empréstimos e movimentações
 ]
 
 MIDDLEWARE = [

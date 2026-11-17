@@ -1,0 +1,47 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Empréstimos{% endblock %}
+{% block titulo_topo %}Controle de chaves{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div><h1>Empréstimos</h1><p>Quem retirou cada chave, quando, e se já devolveu.</p></div>
+  <div class="espaco"></div>
+  <a class="btn primario" href="{% url 'chaves:emprestimo_novo' %}">🔑 Registrar empréstimo</a>
+</div>
+{% include "painel/chaves/_abas.html" with aba="emprestimos" %}
+
+<div class="cartao">
+  <form class="filtros" method="get">
+    <select name="situacao" onchange="this.form.submit()">
+      <option value="abertos" {% if filtros.situacao == 'abertos' %}selected{% endif %}>Em aberto ({{ contagem.abertos }})</option>
+      <option value="atrasados" {% if filtros.situacao == 'atrasados' %}selected{% endif %}>Atrasados ({{ contagem.atrasados }})</option>
+      <option value="devolvidos" {% if filtros.situacao == 'devolvidos' %}selected{% endif %}>Devolvidos ({{ contagem.devolvidos }})</option>
+      <option value="todos" {% if filtros.situacao == 'todos' %}selected{% endif %}>Todos ({{ contagem.todos }})</option>
+    </select>
+    <input type="search" name="q" value="{{ filtros.q }}" placeholder="Buscar por chave, sala, nome ou matrícula…">
+    <button class="btn primario" type="submit">Filtrar</button>
+  </form>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>Chave</th><th>Usuário</th><th>Retirada</th><th>Devolução prevista</th><th>Devolvida</th><th>Situação</th><th>Registrado por</th><th></th></tr></thead>
+      <tbody>
+      {% for e in pagina %}
+        <tr>
+          <td><a class="mono" href="{% url 'chaves:chave' e.chave_id %}"><strong>{{ e.chave.codigo }}</strong></a><div class="pequeno suave">{{ e.chave.sala.nome }}</div></td>
+          <td>{{ e.usuario.nome }}<div class="pequeno suave">{{ e.usuario.get_tipo_display }} · {{ e.usuario.matricula }}</div></td>
+          <td class="suave">{{ e.retirada_em|date:"d/m/Y H:i" }}</td>
+          <td>{{ e.devolucao_prevista|date:"d/m/Y H:i" }}</td>
+          <td class="suave">{% if e.devolvido_em %}{{ e.devolvido_em|date:"d/m/Y H:i" }}<div class="pequeno">recebida por {{ e.recebido_por }}</div>{% else %}—{% endif %}</td>
+          <td>{% include "painel/chaves/_situacao_emprestimo.html" %}</td>
+          <td class="suave">{{ e.registrado_por }}</td>
+          <td><div class="acoes">{% if e.aberto %}{% include "painel/chaves/_devolver.html" %}{% endif %}</div></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="vazio-msg">Nenhum empréstimo nessa situação.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "painel/chaves/_paginacao.html" with rotulo="empréstimos" %}
+</div>
+{% endblock %}

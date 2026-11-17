@@ -36,6 +36,10 @@
         <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
         <span>FAQ</span>
       </a>
+      <a href="{% url 'chaves:inicio' %}" class="{% if menu == 'chaves' %}ativo{% endif %}">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
+        <span>Controle de chaves</span>
+      </a>
       {% if u.is_supervisor %}
       <a href="{% url 'painel:funcionarios' %}" class="{% if menu == 'funcionarios' %}ativo{% endif %}">
         <svg class="ic" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>

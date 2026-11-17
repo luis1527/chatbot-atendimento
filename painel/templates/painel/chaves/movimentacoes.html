@@ -1,0 +1,43 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Movimentações{% endblock %}
+{% block titulo_topo %}Controle de chaves{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div><h1>Movimentações</h1><p>Histórico completo de cada chave: retiradas, devoluções, manutenção e perdas. Registros não são editáveis.</p></div>
+</div>
+{% include "painel/chaves/_abas.html" with aba="movimentacoes" %}
+
+<div class="cartao">
+  <form class="filtros" method="get">
+    <select name="tipo">
+      <option value="">Tipo: todos</option>
+      {% for valor, rotulo in tipo_choices %}<option value="{{ valor }}" {% if filtros.tipo == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ filtros.q }}" placeholder="Buscar por chave, sala ou usuário…">
+    <button class="btn primario" type="submit">Filtrar</button>
+    {% if parametros %}<a class="btn fantasma" href="?">Limpar</a>{% endif %}
+  </form>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>Data/hora</th><th>Tipo</th><th>Chave</th><th>Sala</th><th>Usuário</th><th>Operador</th><th>Observação</th></tr></thead>
+      <tbody>
+      {% for m in pagina %}
+        <tr>
+          <td class="suave">{{ m.data_hora|date:"d/m/Y H:i" }}</td>
+          <td>{% include "painel/chaves/_tipo_mov.html" with tipo=m.tipo rotulo=m.get_tipo_display %}</td>
+          <td><a class="mono" href="{% url 'chaves:chave' m.chave_id %}">{{ m.chave.codigo }}</a></td>
+          <td>{{ m.chave.sala.nome }}</td>
+          <td>{{ m.usuario.nome|default:"—" }}</td>
+          <td class="suave">{{ m.operador }}</td>
+          <td class="pequeno">{{ m.observacao|default:"" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="vazio-msg">Nenhuma movimentação encontrada.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "painel/chaves/_paginacao.html" with rotulo="movimentações" %}
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Controle de chaves{% endblock %}
+{% block titulo_topo %}Controle de chaves{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Controle de chaves</h1>
+    <p>Empréstimo e devolução das chaves das salas. Tudo fica registrado em Movimentações.</p>
+  </div>
+  <div class="espaco"></div>
+  <a class="btn" href="{% url 'chaves:chave_nova' %}">+ Nova chave</a>
+  <a class="btn primario" href="{% url 'chaves:emprestimo_novo' %}">🔑 Registrar empréstimo</a>
+</div>
+{% include "painel/chaves/_abas.html" with aba="inicio" %}
+
+<div class="cards">
+  <div class="cartao card-num"><div class="rotulo">🔑 Chaves</div><div class="valor">{{ kpis.total }}</div><div class="det">{{ kpis.salas }} salas ativas</div></div>
+  <div class="cartao card-num"><div class="rotulo">✅ Disponíveis</div><div class="valor">{{ kpis.disponiveis }}</div><div class="det">prontas para emprestar</div></div>
+  <div class="cartao card-num"><div class="rotulo">📤 Emprestadas</div><div class="valor">{{ kpis.emprestadas }}</div><div class="det">{{ kpis.hoje }} retirada(s) hoje</div></div>
+  <div class="cartao card-num {% if kpis.atrasadas %}destaque{% endif %}"><div class="rotulo">⏰ Atrasadas</div><div class="valor">{{ kpis.atrasadas }}</div><div class="det">passaram da devolução prevista</div></div>
+  <div class="cartao card-num"><div class="rotulo">🛠 Indisponíveis</div><div class="valor">{{ kpis.indisponiveis }}</div><div class="det">manutenção ou perdidas</div></div>
+  <div class="cartao card-num"><div class="rotulo">👤 Usuários ativos</div><div class="valor">{{ kpis.usuarios }}</div><div class="det">podem retirar chaves</div></div>
+</div>
+
+<div class="cartao">
+  <form class="filtros" method="get">
+    <input type="search" name="q" value="{{ filtros.q }}" placeholder="Buscar por chave, sala ou quem está com ela…">
+    <select name="status">
+      <option value="">Status: todos</option>
+      {% for valor, rotulo in status_choices %}<option value="{{ valor }}" {% if filtros.status == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+    </select>
+    <button class="btn primario" type="submit">Filtrar</button>
+    {% if parametros %}<a class="btn fantasma" href="?">Limpar</a>{% endif %}
+  </form>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>Chave</th><th>Sala</th><th>Status</th><th>Com quem</th><th>Devolução prevista</th><th></th></tr></thead>
+      <tbody>
+      {% for c in pagina %}
+        <tr>
+          <td><a class="mono" href="{% url 'chaves:chave' c.pk %}"><strong>{{ c.codigo }}</strong></a>{% if c.descricao %}<div class="pequeno suave">{{ c.descricao }}</div>{% endif %}</td>
+          <td>{{ c.sala.nome }} <span class="suave pequeno">{{ c.sala.codigo }}</span></td>
+          <td>{% include "painel/chaves/_status_chave.html" with status=c.status %}</td>
+          <td>{% if c.aberto %}{{ c.aberto.usuario.nome }} <span class="suave pequeno">{{ c.aberto.usuario.get_tipo_display }}</span>{% else %}<span class="suave">—</span>{% endif %}</td>
+          <td>{% if c.aberto %}{{ c.aberto.devolucao_prevista|date:"d/m H:i" }} {% if c.aberto.atrasado %}<span class="badge perigo p">atrasada</span>{% endif %}{% else %}<span class="suave">—</span>{% endif %}</td>
+          <td>
+            <div class="acoes">
+              {% if c.status == 'disponivel' %}
+                <a class="btn p primario" href="{% url 'chaves:emprestimo_novo' %}?chave={{ c.pk }}">Emprestar</a>
+              {% elif c.aberto %}
+                {% include "painel/chaves/_devolver.html" with e=c.aberto %}
+              {% endif %}
+              <a class="btn p" href="{% url 'chaves:chave' c.pk %}">Histórico</a>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="vazio-msg">Nenhuma chave encontrada.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "painel/chaves/_paginacao.html" with rotulo="chaves" %}
+</div>
+
+<div class="cartao" style="margin-top:20px">
+  <div class="cartao-cabeca"><h2>Últimas movimentações</h2><div class="espaco" style="flex:1"></div><a class="btn p fantasma" href="{% url 'chaves:movimentacoes' %}">Ver todas →</a></div>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <tbody>
+      {% for m in ultimas %}
+        <tr>
+          <td class="suave" style="width:120px">{{ m.data_hora|date:"d/m H:i" }}</td>
+          <td>{% include "painel/chaves/_tipo_mov.html" with tipo=m.tipo rotulo=m.get_tipo_display %}</td>
+          <td><a class="mono" href="{% url 'chaves:chave' m.chave_id %}">{{ m.chave.codigo }}</a></td>
+          <td>{{ m.usuario.nome|default:"—" }}</td>
+          <td class="suave pequeno">por {{ m.operador }}</td>
+        </tr>
+      {% empty %}
+        <tr><td class="vazio-msg">Nenhuma movimentação ainda.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

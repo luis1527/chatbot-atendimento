@@ -1,0 +1,1 @@
+{% if e.aberto %}{% if e.atrasado %}<span class="badge perigo">Atrasado</span>{% else %}<span class="badge info">Em aberto</span>{% endif %}{% elif e.devolvido_em > e.devolucao_prevista %}<span class="badge alerta">Devolvido c/ atraso</span>{% else %}<span class="badge sucesso">Devolvido</span>{% endif %}

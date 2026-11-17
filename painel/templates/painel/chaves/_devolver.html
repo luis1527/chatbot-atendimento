@@ -1,0 +1,4 @@
+<form method="post" action="{% url 'chaves:emprestimo_devolver' e.pk %}" onsubmit="return confirm('Confirmar a devolução da chave {{ e.chave.codigo|escapejs }} por {{ e.usuario.nome|escapejs }}?')">
+  {% csrf_token %}<input type="hidden" name="proximo" value="{{ request.get_full_path }}">
+  <button class="btn p sucesso" type="submit">↩ Devolver</button>
+</form>

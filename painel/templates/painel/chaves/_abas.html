@@ -1,0 +1,7 @@
+<div class="chips">
+  <a class="chip {% if aba == 'inicio' %}ativo{% endif %}" href="{% url 'chaves:inicio' %}">🔑 Chaves</a>
+  <a class="chip {% if aba == 'emprestimos' %}ativo{% endif %}" href="{% url 'chaves:emprestimos' %}">📋 Empréstimos</a>
+  <a class="chip {% if aba == 'salas' %}ativo{% endif %}" href="{% url 'chaves:salas' %}">🚪 Salas</a>
+  <a class="chip {% if aba == 'usuarios' %}ativo{% endif %}" href="{% url 'chaves:usuarios' %}">👤 Usuários</a>
+  <a class="chip {% if aba == 'movimentacoes' %}ativo{% endif %}" href="{% url 'chaves:movimentacoes' %}">🕘 Movimentações</a>
+</div>
