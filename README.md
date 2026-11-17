@@ -165,6 +165,8 @@ A Vercel hoje **detecta Django sozinha**: acha o `manage.py`, lê `WSGI_APPLICAT
 - `vercel.json`, que dá até 60 s por requisição (a chamada ao Gemini pode demorar) e tira `docs/` e os testes do pacote;
 - `.vercelignore`, que não envia `.venv`, `.env` nem o SQLite.
 
+**Deploy automático:** o projeto na Vercel está ligado a este repositório. Todo `git push` na branch `master` publica uma nova versão em produção em cerca de 1 minuto; pushes em outras branches geram um link de pré-visualização.
+
 **Arquivos estáticos (CSS/JS):** a Vercel roda o `collectstatic` automaticamente no build, porque `STATIC_ROOT` está configurado, e serve os arquivos pela CDN. O WhiteNoise com `WHITENOISE_USE_FINDERS = True` serve como garantia e funciona mesmo sem `collectstatic`. Não é preciso configurar nada.
 
 ### Passo a passo
