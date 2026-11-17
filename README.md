@@ -83,7 +83,7 @@ chatbot-atendimento/
 │   ├── models.py        9 tabelas + constraints
 │   ├── services.py      regras: escalar, assumir, transferir, encerrar, tickets…
 │   ├── admin.py         /admin/ completo
-│   ├── tests.py         29 testes de banco e regras
+│   ├── tests.py         29 testes de banco e regras (105 no projeto todo)
 │   ├── migrations/      criação das tabelas
 │   └── management/commands/popular_demo.py   dados de teste
 ├── bot/               motor do bot, Telegram, Gemini, comandos telegram_polling / telegram_webhook
@@ -232,6 +232,6 @@ Documentação completa em [`docs/modelo-de-dados.md`](docs/modelo-de-dados.md):
 | 0:40–1:50 | **Telegram ao vivo:** `/start` → "❓ Chat de dúvida" → "como pago com pix?" (o FAQ/IA responde) → "📝 Abrir ticket" (recebe `TCK-…`) | Atendimento automático e protocolo |
 | 1:50–3:00 | No Telegram, "👤 Falar com atendente". No painel com **dois navegadores** (atendente1 e atendente2), a conversa aparece na fila dos dois. Um clica "Assumir"; o outro tenta e recebe o aviso. Responder → a mensagem chega no Telegram com o nome do atendente. Encerrar → o cliente dá ⭐⭐⭐⭐⭐ | Escalonamento humano, vários funcionários, sem conflito |
 | 3:00–4:20 | **Banco de dados:** abrir `docs/diagrama-er.png` (9 tabelas, PK/FK, 1:N). Mostrar 2 regras: "1 conversa aberta por cliente" e "não duplicar mensagem do Telegram". No terminal, `psql -f docs/testes-integridade.sql` (o banco recusando) e uma consulta (nota média por atendente) | Modelagem, chaves, integridade, consultas: entrega do squad de dados |
-| 4:20–5:00 | Dashboard (`/painel/dashboard/`): satisfação, intenções, tempo na fila. Fechar com `python manage.py test core` → 29 testes OK | Relatórios + qualidade |
+| 4:20–5:00 | Dashboard (`/painel/dashboard/`): satisfação, intenções, tempo na fila. Fechar com `python manage.py test` → 105 testes OK | Relatórios + qualidade |
 
 Dica: rode `popular_demo --conversas` antes, para o dashboard ter dados. Deixe o painel já logado nos dois navegadores.

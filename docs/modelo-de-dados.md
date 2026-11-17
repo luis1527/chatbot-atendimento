@@ -322,9 +322,9 @@ O Django aplica estas regras; no SQL as FKs aparecem como `DEFERRABLE INITIALLY 
 | Conversa | Apaga mensagens e eventos; tickets ficam, com `conversa_id = NULL` | O ticket continua válido sem a conversa |
 | Categoria do FAQ | **Bloqueado** (PROTECT) se tiver perguntas | Evita apagar o FAQ inteiro sem querer |
 | Pergunta do FAQ / Intenção | Mensagens ficam, com `faq_id` / `intencao_id = NULL` | O histórico é preservado |
-| Funcionário | FKs viram NULL (SET NULL), **mas** veja o alerta abaixo | |
+| Funcionário | **Bloqueado** (PROTECT) se já atendeu alguma conversa ou enviou mensagens; nos eventos e tickets as FKs viram NULL | Preserva quem respondeu cada mensagem |
 
-> ⚠️ **Funcionário não deve ser apagado, e sim desativado** (`is_active = false`). Se ele já enviou mensagens, o SET NULL deixaria `remetente='atendente'` sem `atendente_id`, e a regra 7 recusa (`IntegrityError`). O mesmo vale se ele tiver uma conversa em status `humano` (regra 5). Na prática, o banco protege o histórico de autoria.
+> ⚠️ **Funcionário não é apagado, e sim desativado** (`is_active = false`). Desde a migração 0002, `conversa.atendente_id` e `mensagem.atendente_id` usam PROTECT: o banco recusa apagar um funcionário com histórico, com um erro claro, e o histórico de autoria fica preservado.
 
 ---
 
@@ -532,7 +532,7 @@ psql chatbot_atendimento -c '\dt core_*'                  # tabelas
 psql chatbot_atendimento -c '\d core_conversa'            # colunas, índices e constraints
 psql chatbot_atendimento -f docs/consultas-relatorios.sql # consultar e relacionar (JOINs)
 psql chatbot_atendimento -f docs/testes-integridade.sql   # ver o banco recusando dados inválidos
-python manage.py test core                                # 29 testes automáticos
+python manage.py test core                                # 29 testes do banco (105 no projeto: python manage.py test)
 ```
 
 ## 7. Pontos de atenção do modelo (melhorias futuras)

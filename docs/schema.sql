@@ -142,3 +142,26 @@ CREATE INDEX "core_ticket_contato_id_583ce89b" ON "core_ticket" ("contato_id");
 CREATE INDEX "core_ticket_conversa_id_53d32af7" ON "core_ticket" ("conversa_id");
 CREATE INDEX "core_ticket_responsavel_id_b9a83744" ON "core_ticket" ("responsavel_id");
 COMMIT;
+
+-- ============================================================
+-- Migração 0002: funcionário com histórico protegido (PROTECT) e
+-- contato com exatamente um identificador (telegram OU web).
+-- ============================================================
+BEGIN;
+--
+-- Remove constraint contato_identificador_por_canal from model contato
+--
+ALTER TABLE "core_contato" DROP CONSTRAINT "contato_identificador_por_canal";
+--
+-- Alter field atendente on conversa
+--
+-- (no-op)
+--
+-- Alter field atendente on mensagem
+--
+-- (no-op)
+--
+-- Create constraint contato_identificador_por_canal on model contato
+--
+ALTER TABLE "core_contato" ADD CONSTRAINT "contato_identificador_por_canal" CHECK ((("canal" = 'telegram' AND "telegram_chat_id" IS NOT NULL AND "web_sessao" IS NULL) OR ("canal" = 'web' AND "telegram_chat_id" IS NULL AND "web_sessao" IS NOT NULL)));
+COMMIT;

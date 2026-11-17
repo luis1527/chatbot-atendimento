@@ -1,288 +1,499 @@
-"""Gera docs/diagrama-er.drawio e docs/diagrama-er.svg a partir do mesmo layout.
+"""Gera docs/diagrama-er.drawio (fonte única do diagrama ER).
 
-Uso (na raiz do projeto):  python docs/gerar_diagrama.py docs
-Se mudar core/models.py, atualize TABELAS/RELACOES aqui e rode de novo.
+Uso (na raiz do projeto):
+    python3 docs/gerar_diagrama.py            # gera o .drawio e confere o traçado
+    drawio --export --format png --scale 2.5 --border 24 --background '#FFFFFF' \
+        -o docs/diagrama-er.png docs/diagrama-er.drawio
+    drawio --export --format svg --border 24 -o docs/diagrama-er.svg docs/diagrama-er.drawio
+
+O PNG e o SVG são exportados pelo próprio draw.io a partir do .drawio, então
+os três ficam idênticos. Se mudar core/models.py, atualize TABELAS e RELACOES.
+
+Todas as rotas são ortogonais e calculadas aqui. Antes de gravar, o script
+verifica que nenhuma linha atravessa tabela, que nenhuma linha cruza outra e
+que nenhum rótulo encosta em linha ou tabela (falha com erro se houver).
 """
+import os
 import sys
+import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 
-DOCS = sys.argv[1]
+DOCS = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
+FONTE = "Helvetica"
 
-W, HDR, ROW = 380, 34, 24
-CK, CN, CT, CNN = 66, 168, 112, 34  # larguras: chave, nome, tipo, NN
+# ---------------------------------------------------------------------------
+# Medidas
+# ---------------------------------------------------------------------------
+W, HDR, ROW = 380, 46, 24
+COLS = (60, 172, 116, 32)  # chave, coluna, tipo, NN  (soma = W)
+PAD, TOPO_GRUPO = 30, 52   # respiro interno dos grupos e altura da faixa de título
 
-CORES = {  # (cabeçalho, borda)
-    "func": ("#F8CECC", "#B85450"),
-    "cli": ("#D5E8D4", "#82B366"),
-    "atend": ("#DAE8FC", "#6C8EBF"),
-    "kb": ("#E1D5E7", "#9673A6"),
+CORES = {  # fundo do grupo, borda do grupo, título do grupo, cabeçalho tabela, borda tabela
+    "cli": ("#F3F9F5", "#CFE5D6", "#2E7D4F", "#D7EEDF", "#7FB894"),
+    "atend": ("#F2F6FC", "#CCD9EE", "#2F5E9E", "#DCE7F7", "#7F9FCF"),
+    "func": ("#FCF4F3", "#EDD2CF", "#A4443F", "#F6DAD7", "#CC8A85"),
+    "kb": ("#F7F3FB", "#DDD1EA", "#6B4C8C", "#E8DDF2", "#A68CC1"),
 }
+TINTA, TINTA2, TINTA3 = "#1F2933", "#52606D", "#7B8794"
+LINHA = "#4A5563"
+PK_FUNDO = "#FFF6D6"
+SEPARADOR = "#E7EAEE"
 
 TZ = "timestamptz"
+# nome: (grupo, x, y, descrição, [(marcadores, coluna, tipo, NOT NULL)])
 TABELAS = {
-    "core_usuario": ("func", 540, 520, "Funcionário (login do painel)", [
-        ("PK", "id", "bigint", 1), ("UQ", "username", "varchar(150)", 1), ("", "password", "varchar(128)", 1),
-        ("", "first_name", "varchar(150)", 1), ("", "last_name", "varchar(150)", 1), ("", "email", "varchar(254)", 1),
-        ("", "cargo", "varchar(20)", 1), ("", "apelido", "varchar(60)", 1), ("", "online", "boolean", 1),
-        ("", "ultimo_acesso_painel", TZ, 0), ("", "is_active", "boolean", 1), ("", "is_staff", "boolean", 1),
-        ("", "is_superuser", "boolean", 1), ("", "last_login", TZ, 0), ("", "date_joined", TZ, 1)]),
-    "core_contato": ("cli", 40, 40, "Cliente (Telegram ou site)", [
-        ("PK", "id", "bigint", 1), ("", "canal", "varchar(20)", 1), ("", "nome", "varchar(120)", 1),
+    "core_contato": ("cli", 80, 170, "Cliente (Telegram ou site)", [
+        ("PK", "id", "bigint", 1), ("CK", "canal", "varchar(20)", 1), ("", "nome", "varchar(120)", 1),
         ("UQ", "telegram_chat_id", "bigint", 0), ("", "telegram_username", "varchar(64)", 1),
-        ("UQ", "web_sessao", "varchar(64)", 0), ("", "email", "varchar(254)", 1), ("", "telefone", "varchar(30)", 1),
-        ("", "criado_em", TZ, 1), ("", "ultimo_contato_em", TZ, 1)]),
-    "core_ticket": ("cli", 40, 400, "Solicitação com protocolo", [
+        ("UQ", "web_sessao", "varchar(64)", 0), ("", "email", "varchar(254)", 1),
+        ("", "telefone", "varchar(30)", 1), ("", "criado_em", TZ, 1), ("", "ultimo_contato_em", TZ, 1)]),
+    "core_ticket": ("cli", 80, 518, "Solicitação com protocolo", [
         ("PK", "id", "bigint", 1), ("UQ", "protocolo", "varchar(20)", 1), ("FK", "contato_id", "bigint", 1),
-        ("FK", "conversa_id", "bigint", 0), ("FK", "responsavel_id", "bigint", 0), ("", "assunto", "varchar(150)", 1),
-        ("", "descricao", "text", 1), ("", "categoria", "varchar(20)", 1), ("", "prioridade", "varchar(10)", 1),
-        ("", "status", "varchar(20)", 1), ("", "resposta", "text", 1), ("", "criado_em", TZ, 1),
-        ("", "atualizado_em", TZ, 1), ("", "resolvido_em", TZ, 0)]),
-    "core_conversa": ("atend", 540, 64, "Um atendimento do início ao fim", [
-        ("PK", "id", "bigint", 1), ("FK UQ*", "contato_id", "bigint", 1), ("FK", "atendente_id", "bigint", 0),
-        ("", "canal", "varchar(20)", 1), ("", "status", "varchar(20)", 1), ("", "modo", "varchar(20)", 1),
+        ("FK", "conversa_id", "bigint", 0), ("FK", "responsavel_id", "bigint", 0),
+        ("", "assunto", "varchar(150)", 1), ("", "descricao", "text", 1), ("", "categoria", "varchar(20)", 1),
+        ("", "prioridade", "varchar(10)", 1), ("", "status", "varchar(20)", 1), ("", "resposta", "text", 1),
+        ("", "criado_em", TZ, 1), ("", "atualizado_em", TZ, 1), ("", "resolvido_em", TZ, 0)]),
+    "core_conversa": ("atend", 580, 170, "Um atendimento, do início ao fim", [
+        ("PK", "id", "bigint", 1), ("FK UQ¹", "contato_id", "bigint", 1), ("FK", "atendente_id", "bigint", 0),
+        ("", "canal", "varchar(20)", 1), ("CK", "status", "varchar(20)", 1), ("", "modo", "varchar(20)", 1),
         ("", "motivo_escalonamento", "varchar(255)", 1), ("CK", "avaliacao", "smallint", 0),
-        ("", "comentario_avaliacao", "varchar(500)", 1), ("", "iniciada_em", TZ, 1), ("", "atualizada_em", TZ, 1),
-        ("", "escalada_em", TZ, 0), ("", "assumida_em", TZ, 0), ("", "encerrada_em", TZ, 0),
-        ("", "ultima_leitura_atendente_em", TZ, 0)]),
-    "core_mensagem": ("atend", 1040, 40, "Cada mensagem trocada", [
-        ("PK", "id", "bigint", 1), ("FK", "conversa_id", "bigint", 1), ("FK", "atendente_id", "bigint", 0),
-        ("FK", "intencao_id", "bigint", 0), ("FK", "faq_id", "bigint", 0), ("CK", "remetente", "varchar(20)", 1),
-        ("", "texto", "text", 1), ("", "confianca", "double precision", 0), ("", "origem_resposta", "varchar(20)", 1),
-        ("", "botoes", "jsonb", 0), ("UQ*", "telegram_message_id", "bigint", 0), ("", "criada_em", TZ, 1)]),
-    "core_eventoconversa": ("atend", 1040, 440, "Histórico / auditoria", [
+        ("", "comentario_avaliacao", "varchar(500)", 1), ("", "iniciada_em", TZ, 1),
+        ("", "atualizada_em", TZ, 1), ("", "escalada_em", TZ, 0), ("", "assumida_em", TZ, 0),
+        ("", "encerrada_em", TZ, 0), ("", "ultima_leitura_atendente_em", TZ, 0)]),
+    "core_mensagem": ("atend", 1100, 170, "Cada mensagem trocada na conversa", [
+        ("PK", "id", "bigint", 1), ("FK UQ²", "conversa_id", "bigint", 1), ("FK", "intencao_id", "bigint", 0),
+        ("FK", "faq_id", "bigint", 0), ("FK", "atendente_id", "bigint", 0), ("CK", "remetente", "varchar(20)", 1),
+        ("", "texto", "text", 1), ("", "confianca", "double precision", 0),
+        ("", "origem_resposta", "varchar(20)", 1), ("", "botoes", "jsonb", 0),
+        ("UQ²", "telegram_message_id", "bigint", 0), ("", "criada_em", TZ, 1)]),
+    "core_eventoconversa": ("atend", 1100, 566, "Histórico / auditoria da conversa", [
         ("PK", "id", "bigint", 1), ("FK", "conversa_id", "bigint", 1), ("FK", "usuario_id", "bigint", 0),
-        ("FK", "para_usuario_id", "bigint", 0), ("", "tipo", "varchar(20)", 1), ("", "detalhe", "varchar(255)", 1),
-        ("", "criado_em", TZ, 1)]),
-    "core_intencao": ("kb", 1540, 40, "Intenções que o bot reconhece", [
+        ("FK", "para_usuario_id", "bigint", 0), ("", "tipo", "varchar(20)", 1),
+        ("", "detalhe", "varchar(255)", 1), ("", "criado_em", TZ, 1)]),
+    "core_usuario": ("func", 820, 898, "Funcionário que acessa o painel", [
+        ("PK", "id", "bigint", 1), ("UQ", "username", "varchar(150)", 1), ("", "email", "varchar(254)", 1),
+        ("", "apelido", "varchar(60)", 1), ("", "cargo", "varchar(20)", 1), ("", "online", "boolean", 1),
+        ("", "is_active", "boolean", 1), ("", "ultimo_acesso_painel", TZ, 0),
+        ("+", "+ campos padrão de autenticação do Django", "", 0)]),
+    "core_intencao": ("kb", 1670, 170, "Intenções que o bot reconhece", [
         ("PK", "id", "bigint", 1), ("UQ", "slug", "varchar(40)", 1), ("", "nome", "varchar(80)", 1),
         ("", "descricao", "varchar(255)", 1)]),
-    "core_perguntafaq": ("kb", 1540, 240, "Pergunta e resposta do FAQ", [
-        ("PK", "id", "bigint", 1), ("FK UQ²", "categoria_id", "bigint", 1), ("UQ²", "pergunta", "varchar(255)", 1),
+    "core_perguntafaq": ("kb", 1670, 374, "Pergunta e resposta do FAQ", [
+        ("PK", "id", "bigint", 1), ("FK UQ³", "categoria_id", "bigint", 1), ("UQ³", "pergunta", "varchar(255)", 1),
         ("", "resposta", "text", 1), ("", "palavras_chave", "varchar(255)", 1), ("", "ativa", "boolean", 1),
-        ("", "vezes_usada", "integer", 1), ("", "criada_em", TZ, 1), ("", "atualizada_em", TZ, 1)]),
-    "core_categoriafaq": ("kb", 1540, 580, "Agrupa perguntas do FAQ", [
-        ("PK", "id", "bigint", 1), ("UQ", "nome", "varchar(80)", 1), ("", "ordem", "smallint", 1)]),
+        ("CK", "vezes_usada", "integer", 1), ("", "criada_em", TZ, 1), ("", "atualizada_em", TZ, 1)]),
+    "core_categoriafaq": ("kb", 1670, 716, "Agrupa as perguntas do FAQ", [
+        ("PK", "id", "bigint", 1), ("UQ", "nome", "varchar(80)", 1), ("CK", "ordem", "smallint", 1)]),
 }
+
+# Grupos (fundo + título): (id, grupo, título, legenda curta, x, y, largura, altura)
+GRUPOS = [
+    ("g_cli", "cli", "Clientes e tickets", "quem fala com o bot e o que abriu", 40, 118, 460, 818),
+    ("g_atend", "atend", "Atendimento", "conversa, mensagens e histórico", 540, 118, 980, 696),
+    ("g_func", "func", "Funcionários", "login do painel", 600, 846, 640, 360),
+    ("g_kb", "kb", "Base de conhecimento", "intenções e FAQ", 1640, 118, 470, 818),
+]
 
 
 def altura(t):
     return HDR + ROW * len(TABELAS[t][4])
 
 
-def linha_y(t, col):
+def ret(t):
+    _, x, y, _, _ = TABELAS[t]
+    return x, y, x + W, y + altura(t)
+
+
+def ylin(t, col):
     _, _, y, _, cols = TABELAS[t]
     i = [c[1] for c in cols].index(col)
     return y + HDR + ROW * i + ROW / 2
 
 
-def lado_x(t, lado):
-    x = TABELAS[t][1]
-    return x if lado == "L" else x + W
+def xe(t):
+    return ret(t)[0]
 
 
-# (pai, lado, filho, coluna FK, lado, [x das "pistas" verticais], rótulo)
-# Pista: o traço sai do pai, anda até x=pista, sobe/desce até a linha da FK e entra no filho.
+def xd(t):
+    return ret(t)[2]
+
+
+def ytopo(t):
+    return ret(t)[1]
+
+
+def ybase(t):
+    return ret(t)[3]
+
+
+def nn(t, col):
+    return next(c[3] for c in TABELAS[t][4] if c[1] == col)
+
+
+# ---------------------------------------------------------------------------
+# Relações. Cada uma: pai, âncora no pai, filho, coluna FK, lado no filho,
+# pontos intermediários (rota ortogonal), verbo e posição do verbo.
+#   âncora no pai: ("lin", lado, coluna)  -> linha da coluna (lado "L"/"R")
+#                  ("borda", lado, x|y)   -> borda da tabela ("T"/"B"/"L"/"R")
+# ---------------------------------------------------------------------------
+Y_CONV_TK = ylin("core_ticket", "conversa_id")
+Y_RESP_TK = ylin("core_ticket", "responsavel_id")
+Y_HDR_USU = ytopo("core_usuario") + HDR / 2
+
 RELACOES = [
-    ("core_contato", "R", "core_conversa", "contato_id", "L", 470, "tem"),
-    ("core_contato", "L", "core_ticket", "contato_id", "L", 16, "abre"),
-    ("core_conversa", "L", "core_ticket", "conversa_id", "R", 500, "origina"),
-    ("core_usuario", "L", "core_ticket", "responsavel_id", "R", 440, "responsável"),
-    ("core_usuario", "R", "core_conversa", "atendente_id", "R", 940, "atende"),
-    ("core_conversa", "R", "core_mensagem", "conversa_id", "L", None, "contém"),
-    ("core_conversa", "R", "core_eventoconversa", "conversa_id", "L", 962, "registra"),
-    ("core_usuario", "R", "core_mensagem", "atendente_id", "L", 984, "envia"),
-    ("core_usuario", "R", "core_eventoconversa", "usuario_id", "L", 1004, ""),
-    ("core_usuario", "R", "core_eventoconversa", "para_usuario_id", "L", 1022, ""),
-    ("core_intencao", "L", "core_mensagem", "intencao_id", "R", 1470, "classifica"),
-    ("core_perguntafaq", "L", "core_mensagem", "faq_id", "R", 1500, "responde"),
-    ("core_categoriafaq", "R", "core_perguntafaq", "categoria_id", "R", 1950, "agrupa"),
+    # Clientes
+    dict(pai="core_contato", ap=("lin", "R", "id"), filho="core_conversa", col="contato_id", lf="L",
+         via=[(530, ylin("core_contato", "id")), (530, ylin("core_conversa", "contato_id"))],
+         verbo="inicia", rot=(520, ylin("core_contato", "id") - 12)),
+    dict(pai="core_contato", ap=("lin", "L", "id"), filho="core_ticket", col="contato_id", lf="L",
+         via=[(58, ylin("core_contato", "id")), (58, ylin("core_ticket", "contato_id"))],
+         verbo="abre", rot=(58, 470), rot_lado="vert"),
+    dict(pai="core_conversa", ap=("borda", "B", 620), filho="core_ticket", col="conversa_id", lf="R",
+         via=[(620, Y_CONV_TK)],
+         verbo="origina", rot=(582, Y_CONV_TK - 12)),
+    dict(pai="core_usuario", ap=("borda", "T", 850), filho="core_ticket", col="responsavel_id", lf="R",
+         via=[(850, Y_RESP_TK)],
+         verbo="é responsável", rot=(645, Y_RESP_TK + 12)),
+    # Atendimento
+    dict(pai="core_usuario", ap=("borda", "T", 910), filho="core_conversa", col=None, lf=("B", 910),
+         via=[], verbo="atende", rot=(910, 740), rot_lado="vert"),
+    dict(pai="core_conversa", ap=("lin", "R", "id"), filho="core_mensagem", col="conversa_id", lf="L",
+         via=[(1030, ylin("core_conversa", "id")), (1030, ylin("core_mensagem", "conversa_id"))],
+         verbo="contém", rot=(995, ylin("core_conversa", "id") - 12)),
+    dict(pai="core_conversa", ap=("borda", "B", 940), filho="core_eventoconversa", col="conversa_id", lf="L",
+         via=[(940, ylin("core_eventoconversa", "conversa_id"))],
+         verbo="registra", rot=(1040, ylin("core_eventoconversa", "conversa_id") - 12)),
+    dict(pai="core_usuario", ap=("borda", "T", 990), filho="core_eventoconversa", col="usuario_id", lf="L",
+         via=[(990, ylin("core_eventoconversa", "usuario_id"))],
+         verbo="executa", rot=(990, 800), rot_lado="vertL"),
+    dict(pai="core_usuario", ap=("borda", "T", 1050), filho="core_eventoconversa", col="para_usuario_id",
+         lf="L", via=[(1050, ylin("core_eventoconversa", "para_usuario_id"))],
+         verbo="recebe", rot=(1050, 800), rot_lado="vert"),
+    dict(pai="core_usuario", ap=("borda", "R", Y_HDR_USU), filho="core_mensagem", col="atendente_id", lf="R",
+         via=[(1535, Y_HDR_USU), (1535, ylin("core_mensagem", "atendente_id"))],
+         verbo="envia", rot=(1370, Y_HDR_USU - 12)),
+    # Base de conhecimento
+    dict(pai="core_intencao", ap=("lin", "L", "id"), filho="core_mensagem", col="intencao_id", lf="R",
+         via=[(1600, ylin("core_intencao", "id")), (1600, ylin("core_mensagem", "intencao_id"))],
+         verbo="classifica", rot=(1558, ylin("core_mensagem", "intencao_id") - 12)),
+    dict(pai="core_perguntafaq", ap=("lin", "L", "id"), filho="core_mensagem", col="faq_id", lf="R",
+         via=[(1565, ylin("core_perguntafaq", "id")), (1565, ylin("core_mensagem", "faq_id"))],
+         verbo="responde", rot=(1565, 372), rot_lado="vert"),
+    dict(pai="core_categoriafaq", ap=("lin", "R", "id"), filho="core_perguntafaq", col="categoria_id", lf="R",
+         via=[(2080, ylin("core_categoriafaq", "id")), (2080, ylin("core_perguntafaq", "categoria_id"))],
+         verbo="agrupa", rot=(2080, 676), rot_lado="vertL"),
 ]
 
 
-def nn_da_fk(filho, col):
-    return next(c[3] for c in TABELAS[filho][4] if c[1] == col)
+def ponto_pai(r):
+    tipo, lado, v = r["ap"]
+    t = r["pai"]
+    x0, y0, x1, y1 = ret(t)
+    if tipo == "lin":
+        return (x0 if lado == "L" else x1, ylin(t, v))
+    if lado in ("T", "B"):
+        return (v, y0 if lado == "T" else y1)
+    return (x0 if lado == "L" else x1, v)
 
 
-def pontos(rel):
-    pai, lp, filho, col, lf, pista, _ = rel
-    p0 = (lado_x(pai, lp), linha_y(pai, "id"))
-    p3 = (lado_x(filho, lf), linha_y(filho, col))
-    if pista is None:
-        return [p0, p3]
-    return [p0, (pista, p0[1]), (pista, p3[1]), p3]
+def ponto_filho(r):
+    t = r["filho"]
+    x0, y0, x1, y1 = ret(t)
+    if r["col"] is None:
+        lado, v = r["lf"]
+        return (v, y0 if lado == "T" else y1)
+    return (x0 if r["lf"] == "L" else x1, ylin(t, r["col"]))
 
 
-LEGENDA_Y = 960
-NOTAS = [
-    "PK chave primária · FK chave estrangeira · UQ valor único · NN obrigatório (NOT NULL) · CK regra CHECK",
-    "UQ* = unicidade parcial:  uma conversa NÃO encerrada por contato  ·  telegram_message_id único por conversa (só mensagens do cliente)",
-    "UQ² = único em conjunto: (categoria_id, pergunta)",
-    "CHECK: contato tem telegram_chat_id (canal telegram) ou web_sessao (canal web) · conversa 'humano' exige atendente_id ·"
-    " avaliacao entre 1 e 5 · mensagem de 'atendente' exige atendente_id",
-    "Pé-de-galinha: ||  exatamente um   o|  zero ou um (FK opcional)   o<  zero ou muitos.  Linha cheia = FK obrigatória.",
-]
+def caminho(r):
+    return [ponto_pai(r)] + r["via"] + [ponto_filho(r)]
+
+
+def opcional(r):
+    if r["col"] is None:  # conversa.atendente_id
+        return True
+    return not nn(r["filho"], r["col"])
+
+
+r_conv_atend = RELACOES[4]
+r_conv_atend["col_real"] = "atendente_id"
+
+# Tamanho aproximado dos rótulos (Helvetica 11px)
+FONTE_ROT = 11
+
+
+def caixa_rotulo(r):
+    w = 5.6 * len(r["verbo"]) + 6
+    h = 16
+    x, y = r["rot"]
+    if r.get("rot_lado") == "vert":  # ao lado de um traço vertical, à direita
+        return (x + 7, y - h / 2, x + 7 + w, y + h / 2)
+    if r.get("rot_lado") == "vertL":  # ao lado de um traço vertical, à esquerda
+        return (x - 7 - w, y - h / 2, x - 7, y + h / 2)
+    return (x - w / 2, y - h / 2, x + w / 2, y + h / 2)
+
+
+# ---------------------------------------------------------------------------
+# Conferência geométrica
+# ---------------------------------------------------------------------------
+def segmentos(pts):
+    return list(zip(pts, pts[1:]))
+
+
+def cruza(a, b):
+    (p1, p2), (q1, q2) = a, b
+    ax0, ax1 = sorted((p1[0], p2[0])); ay0, ay1 = sorted((p1[1], p2[1]))
+    bx0, bx1 = sorted((q1[0], q2[0])); by0, by1 = sorted((q1[1], q2[1]))
+    return ax0 <= bx1 and bx0 <= ax1 and ay0 <= by1 and by0 <= ay1
+
+
+def seg_em_ret(s, rc, folga=0.5):
+    (p1, p2) = s
+    x0, y0, x1, y1 = rc
+    sx0, sx1 = sorted((p1[0], p2[0])); sy0, sy1 = sorted((p1[1], p2[1]))
+    return sx0 < x1 - folga and sx1 > x0 + folga and sy0 < y1 - folga and sy1 > y0 + folga
+
+
+def conferir():
+    erros = []
+    caminhos = {i: caminho(r) for i, r in enumerate(RELACOES)}
+    for i, pts in caminhos.items():
+        for a, b in segmentos(pts):
+            if a[0] != b[0] and a[1] != b[1]:
+                erros.append(f"rel {i} tem trecho diagonal {a}->{b}")
+            for t in TABELAS:
+                if seg_em_ret((a, b), ret(t)):
+                    erros.append(f"rel {i} atravessa {t}")
+    for i in caminhos:
+        for j in caminhos:
+            if j <= i:
+                continue
+            for s in segmentos(caminhos[i]):
+                for u in segmentos(caminhos[j]):
+                    if cruza(s, u):
+                        erros.append(f"rel {i} ({RELACOES[i]['verbo']}) cruza rel {j} ({RELACOES[j]['verbo']})")
+    for i, r in enumerate(RELACOES):
+        cx = caixa_rotulo(r)
+        for t in TABELAS:
+            if seg_em_ret(((cx[0], cx[1]), (cx[2], cx[3])), ret(t), folga=-4):
+                erros.append(f"rótulo '{r['verbo']}' encosta em {t}")
+        for j, pts in caminhos.items():
+            for s in segmentos(pts):
+                if seg_em_ret(s, (cx[0] - 2, cx[1] - 2, cx[2] + 2, cx[3] + 2), folga=0):
+                    erros.append(f"rótulo '{r['verbo']}' encosta na rel {j}")
+    return erros
 
 
 # ---------------------------------------------------------------------------
 # draw.io
 # ---------------------------------------------------------------------------
+def q(s):
+    return escape(s, {'"': "&quot;"})
+
+
 def gerar_drawio():
     cel = []
     add = cel.append
-    for nome, (grupo, x, y, desc, cols) in TABELAS.items():
-        fill, stroke = CORES[grupo]
-        add(f'<mxCell id="{nome}" value="{escape(nome)}" style="shape=table;startSize={HDR};container=1;'
-            f'collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=1;'
-            f'html=1;fillColor={fill};strokeColor={stroke};fontSize=13;swimlaneFillColor=#FFFFFF;" vertex="1" parent="1">'
-            f'<mxGeometry x="{x}" y="{y}" width="{W}" height="{altura(nome)}" as="geometry"/></mxCell>')
-        for i, (k, c, tp, nn) in enumerate(cols):
-            rid = f"{nome}.{c}"
+
+    def texto(id_, html, x, y, w, h, estilo=""):
+        add(f'<mxCell id="{id_}" value="{q(html)}" style="text;html=1;whiteSpace=wrap;fontFamily={FONTE};'
+            f'strokeColor=none;fillColor=none;{estilo}" vertex="1" parent="1">'
+            f'<mxGeometry x="{x}" y="{y}" width="{w}" height="{h}" as="geometry"/></mxCell>')
+
+    # Título
+    texto("titulo", "Chatbot de Atendimento — Modelo de Dados", 40, 28, 1200, 36,
+          f"fontSize=28;fontStyle=1;fontColor={TINTA};align=left;verticalAlign=middle;spacing=0;")
+    texto("subtitulo",
+          "Diagrama entidade-relacionamento · PostgreSQL · 9 tabelas do app <i>core</i> "
+          "(core/models.py, migrações 0001 e 0002)",
+          40, 68, 1200, 24, f"fontSize=14;fontColor={TINTA2};align=left;verticalAlign=middle;spacing=0;")
+
+    # Grupos (ficam por baixo de tudo)
+    for gid, g, tit, sub, x, y, w, h in GRUPOS:
+        fundo, borda, cor_tit, _, _ = CORES[g]
+        add(f'<mxCell id="{gid}" value="" style="rounded=1;arcSize=2;absoluteArcSize=1;html=1;'
+            f'fillColor={fundo};strokeColor={borda};strokeWidth=1;" vertex="1" parent="1">'
+            f'<mxGeometry x="{x}" y="{y}" width="{w}" height="{h}" as="geometry"/></mxCell>')
+        texto(f"{gid}_titulo", escape(tit.upper()), x + PAD, y + 10, 300, 20,
+              f"fontSize=14;fontStyle=1;fontColor={cor_tit};align=left;verticalAlign=middle;spacing=0;")
+        texto(f"{gid}_sub", escape(sub), x + PAD, y + 29, 300, 16,
+              f"fontSize=11;fontColor={TINTA3};align=left;verticalAlign=middle;spacing=0;")
+
+    # Relações (antes das tabelas, para ficarem por baixo)
+    for n, r in enumerate(RELACOES):
+        pts = caminho(r)
+        p0, p1 = pts[0], pts[-1]
+        tp, lado, v = r["ap"]
+        if tp == "lin":
+            src = f'{r["pai"]}.{v}'
+            ex, ey = (0 if lado == "L" else 1), 0.5
+        else:
+            src = r["pai"]
+            x0, y0, x1, y1 = ret(r["pai"])
+            ex, ey = (p0[0] - x0) / W, (p0[1] - y0) / (y1 - y0)
+        if r["col"] is None:
+            tgt = r["filho"]
+            x0, y0, x1, y1 = ret(r["filho"])
+            nx, ny = (p1[0] - x0) / W, (p1[1] - y0) / (y1 - y0)
+        else:
+            tgt = f'{r["filho"]}.{r["col"]}'
+            nx, ny = (0 if r["lf"] == "L" else 1), 0.5
+        inicio = "ERzeroToOne" if opcional(r) else "ERmandOne"
+        meio = "".join(f'<mxPoint x="{px}" y="{py}"/>' for px, py in r["via"])
+        add(f'<mxCell id="rel{n}" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;'
+            f'html=1;strokeColor={LINHA};strokeWidth=1.4;startArrow={inicio};endArrow=ERzeroToMany;'
+            f'startFill=0;endFill=0;startSize=11;endSize=11;jettySize=auto;'
+            f'exitX={ex:.6f};exitY={ey:.6f};exitDx=0;exitDy=0;exitPerimeter=0;'
+            f'entryX={nx:.6f};entryY={ny:.6f};entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" '
+            f'source="{src}" target="{tgt}"><mxGeometry relative="1" as="geometry">'
+            f'<Array as="points">{meio}</Array></mxGeometry></mxCell>')
+        cx = caixa_rotulo(r)
+        al = {"vert": "left", "vertL": "right"}.get(r.get("rot_lado"), "center")
+        texto(f"rel{n}_verbo", escape(r["verbo"]), cx[0], cx[1], cx[2] - cx[0], cx[3] - cx[1],
+              f"fontSize={FONTE_ROT};fontStyle=2;fontColor={TINTA2};align={al};verticalAlign=middle;spacing=0;")
+
+    # Tabelas
+    for nome, (g, x, y, desc, cols) in TABELAS.items():
+        _, _, _, cab, borda = CORES[g]
+        h = altura(nome)
+        titulo = (f'<b style="font-size:14px;color:{TINTA}">{nome}</b><br>'
+                  f'<i style="font-size:11px;color:{TINTA2}">{escape(desc)}</i>')
+        add(f'<mxCell id="{nome}" value="{q(titulo)}" style="shape=table;startSize={HDR};container=1;'
+            f'collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=0;columnLines=0;resizeLast=1;html=1;'
+            f'whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily={FONTE};fillColor={cab};'
+            f'strokeColor={borda};strokeWidth=1.2;swimlaneFillColor=#FFFFFF;rounded=0;'
+            f'shadow=0;" vertex="1" parent="1">'
+            f'<mxGeometry x="{x}" y="{y}" width="{W}" height="{h}" as="geometry"/></mxCell>')
+        for i, (k, c, tp, obrig) in enumerate(cols):
+            rid = f"{nome}.{c}" if k != "+" else f"{nome}.mais"
+            pk = k == "PK"
+            fundo = PK_FUNDO if pk else "none"
             add(f'<mxCell id="{rid}" value="" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;'
-                f'swimlaneBody=0;fillColor=none;collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];'
-                f'portConstraint=eastwest;top=0;left=0;right=0;bottom={1 if i == len(cols) - 1 else 0};'
-                f'strokeColor={stroke};" vertex="1" parent="{nome}">'
+                f'swimlaneBody=0;fillColor={fundo};collapsible=0;dropTarget=0;points=[[0,0.5],[1,0.5]];'
+                f'portConstraint=eastwest;top={0 if i == 0 else 1};left=0;right=0;bottom=0;'
+                f'strokeColor={SEPARADOR};" vertex="1" parent="{nome}">'
                 f'<mxGeometry y="{HDR + ROW * i}" width="{W}" height="{ROW}" as="geometry"/></mxCell>')
-            bold = ";fontStyle=1" if "PK" in k else (";fontStyle=4" if "FK" in k else "")
+            if k == "+":
+                vals = [(c, f"fontSize=11;fontStyle=2;fontColor={TINTA3};align=left;spacingLeft=10;"
+                            "overflow=visible;whiteSpace=nowrap;"), ("", ""), ("", ""), ("", "")]
+            else:
+                peso = 1 if pk else 0
+                marc = f"fontSize=10;fontStyle=1;align=center;fontColor={'#9A6B00' if pk else TINTA2};"
+                nomec = (f"fontSize=12;fontStyle={peso | (4 if 'FK' in k else 0)};align=left;spacingLeft=6;"
+                         f"fontColor={TINTA};")
+                tipo = f"fontSize=11;align=left;spacingLeft=6;fontColor={TINTA3};fontFamily=Menlo;"
+                nnc = f"fontSize=9;fontStyle=1;align=center;fontColor={TINTA3};"
+                vals = [(k, marc), (c, nomec), (tp, tipo), ("NN" if obrig else "", nnc)]
             xs = 0
-            for j, (txt, larg) in enumerate([(k, CK), (c, CN), (tp, CT), ("NN" if nn else "", CNN)]):
-                cor = ";fontColor=#666666" if j in (2, 3) else ""
-                al = "align=center" if j in (0, 3) else "align=left;spacingLeft=6"
-                add(f'<mxCell id="{rid}#{j}" value="{escape(txt)}" style="shape=partialRectangle;connectable=0;'
-                    f'fillColor=none;top=0;left=0;bottom=0;right=0;{al};overflow=hidden;whiteSpace=wrap;html=1;'
-                    f'fontSize=11{bold if j in (0, 1) else ""}{cor};" vertex="1" parent="{rid}">'
+            for j, ((txt, est), larg) in enumerate(zip(vals, COLS)):
+                ff = "" if "fontFamily" in est else f"fontFamily={FONTE};"
+                add(f'<mxCell id="{rid}#{j}" value="{q(txt)}" style="shape=partialRectangle;connectable=0;'
+                    f'fillColor=none;top=0;left=0;bottom=0;right=0;verticalAlign=middle;overflow=hidden;html=1;'
+                    f'{ff}{est}" vertex="1" parent="{rid}">'
                     f'<mxGeometry x="{xs}" width="{larg}" height="{ROW}" as="geometry">'
                     f'<mxRectangle width="{larg}" height="{ROW}" as="alternateBounds"/></mxGeometry></mxCell>')
                 xs += larg
-        add(f'<mxCell id="{nome}#desc" value="{escape(desc)}" style="text;html=1;fontSize=11;fontStyle=2;'
-            f'fontColor=#666666;align=left;verticalAlign=bottom;" vertex="1" parent="1">'
-            f'<mxGeometry x="{x}" y="{y - 22}" width="{W}" height="20" as="geometry"/></mxCell>')
 
-    for n, rel in enumerate(RELACOES):
-        pai, lp, filho, col, lf, pista, rot = rel
-        obrig = nn_da_fk(filho, col)
-        start = "ERmandOne" if obrig else "ERzeroToOne"
-        pts = pontos(rel)
-        meio = "".join(f'<mxPoint x="{px}" y="{py}"/>' for px, py in pts[1:-1])
-        dash = "" if obrig else "dashed=1;"
-        add(f'<mxCell id="rel{n}" value="{escape(rot)}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;'
-            f'{dash}startArrow={start};endArrow=ERzeroToMany;startFill=0;endFill=0;startSize=10;endSize=10;'
-            f'jumpStyle=arc;jumpSize=10;fontSize=10;fontColor=#444444;labelBackgroundColor=#FFFFFF;'
-            f'exitX={0 if lp == "L" else 1};exitY=0.5;exitDx=0;exitDy=0;'
-            f'entryX={0 if lf == "L" else 1};entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" '
-            f'source="{pai}.id" target="{filho}.{col}"><mxGeometry relative="1" as="geometry">'
-            f'<Array as="points">{meio}</Array></mxGeometry></mxCell>')
-
-    legenda = "<br>".join(escape(t) for t in NOTAS)
-    add(f'<mxCell id="legenda" value="&lt;b&gt;Legenda&lt;/b&gt;&lt;br&gt;{escape(legenda)}" style="rounded=1;'
-        f'whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=11;fillColor=#FFF2CC;'
-        f'strokeColor=#D6B656;arcSize=4;" vertex="1" parent="1">'
-        f'<mxGeometry x="40" y="{LEGENDA_Y}" width="1880" height="120" as="geometry"/></mxCell>')
-    add('<mxCell id="titulo" value="Chatbot de Atendimento — Modelo Entidade-Relacionamento (PostgreSQL)" '
-        'style="text;html=1;fontSize=18;fontStyle=1;align=left;" vertex="1" parent="1">'
-        '<mxGeometry x="40" y="-30" width="900" height="30" as="geometry"/></mxCell>')
+    gerar_legenda(add, texto)
 
     corpo = "".join(cel)
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<mxfile host="app.diagrams.net" agent="gerado por script" version="24.7.17">\n'
+        '<mxfile host="app.diagrams.net" agent="docs/gerar_diagrama.py" version="24.7.17">\n'
         '  <diagram id="modelo-er" name="Modelo ER">\n'
-        '    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" '
-        'fold="1" page="0" pageScale="1" pageWidth="2000" pageHeight="1200" math="0" shadow="0">\n'
+        '    <mxGraphModel dx="1800" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" '
+        'arrows="1" fold="1" page="0" pageScale="1" pageWidth="2100" pageHeight="1300" '
+        'background="#FFFFFF" math="0" shadow="0">\n'
         f'      <root><mxCell id="0"/><mxCell id="1" parent="0"/>{corpo}</root>\n'
         '    </mxGraphModel>\n  </diagram>\n</mxfile>\n'
     )
 
 
 # ---------------------------------------------------------------------------
-# SVG equivalente
+# Legenda: dois cartões, à esquerda e à direita de Funcionários
 # ---------------------------------------------------------------------------
-def gerar_svg():
-    ox, oy = 30, 60  # deslocamento para caber o título
-    largura, alt = 2040, LEGENDA_Y + 120 + 20 + oy
-    s = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{largura}" height="{alt}" viewBox="0 0 {largura} {alt}" '
-         f'font-family="Helvetica, Arial, sans-serif">',
-         f'<rect width="{largura}" height="{alt}" fill="#FFFFFF"/>',
-         f'<text x="{40+ox}" y="{oy - 30}" font-size="20" font-weight="bold" fill="#222">'
-         'Chatbot de Atendimento — Modelo Entidade-Relacionamento (PostgreSQL)</text>']
-
-    def T(x, y):
-        return x + ox, y + oy
-
-    # relações primeiro (ficam por baixo)
-    for rel in RELACOES:
-        pai, lp, filho, col, lf, pista, rot = rel
-        obrig = nn_da_fk(filho, col)
-        pts = [T(*p) for p in pontos(rel)]
-        d = " ".join(f"{x},{y}" for x, y in pts)
-        dash = '' if obrig else ' stroke-dasharray="6,4"'
-        s.append(f'<polyline points="{d}" fill="none" stroke="#555" stroke-width="1.4"{dash}/>')
-        # marcadores
-        def marca(p, viz, tipo):
-            (x, y), (vx, _) = p, viz
-            sx = 1 if vx > x else -1  # direção para dentro da linha
-            g = []
-            if tipo == "um":
-                for dx in (8, 13):
-                    g.append(f'<line x1="{x+sx*dx}" y1="{y-7}" x2="{x+sx*dx}" y2="{y+7}" stroke="#333" stroke-width="1.6"/>')
-            elif tipo == "zero_um":
-                g.append(f'<line x1="{x+sx*8}" y1="{y-7}" x2="{x+sx*8}" y2="{y+7}" stroke="#333" stroke-width="1.6"/>')
-                g.append(f'<circle cx="{x+sx*19}" cy="{y}" r="5" fill="#fff" stroke="#333" stroke-width="1.4"/>')
-            else:  # zero ou muitos
-                g.append(f'<polyline points="{x},{y-8} {x+sx*12},{y} {x},{y+8}" fill="none" stroke="#333" stroke-width="1.6"/>')
-                g.append(f'<circle cx="{x+sx*19}" cy="{y}" r="5" fill="#fff" stroke="#333" stroke-width="1.4"/>')
-            return g
-        s += marca(pts[0], pts[1], "um" if obrig else "zero_um")
-        s += marca(pts[-1], pts[-2], "muitos")
-        # rótulo no segmento mais longo
-        segs = list(zip(pts, pts[1:]))
-        (ax, ay), (bx, by) = max(segs, key=lambda sg: abs(sg[0][0]-sg[1][0]) + abs(sg[0][1]-sg[1][1]))
-        mx, my = (ax + bx) / 2, (ay + by) / 2
-        halo = 'stroke="#fff" stroke-width="4" paint-order="stroke"'
-        fixo = {"tem": (445, 79, "middle"), "abre": (11, 300, "end"), "responde": (1495, 236, "end"),
-                "agrupa": (1956, 450, "start")}
-        if rot in fixo:
-            fx, fy, anc = fixo[rot]
-            fx, fy = T(fx, fy)
-            s.append(f'<text x="{fx}" y="{fy}" font-size="11" fill="#444" text-anchor="{anc}" {halo}>{escape(rot)}</text>')
-            continue
-        if not rot:
-            continue
-        if ax == bx:  # segmento vertical: texto ao lado da linha
-            s.append(f'<text x="{mx+5}" y="{my+4}" font-size="11" fill="#444" {halo}>{escape(rot)}</text>')
-        else:  # horizontal: texto acima da linha
-            s.append(f'<text x="{mx}" y="{my-5}" font-size="11" fill="#444" text-anchor="middle" {halo}>{escape(rot)}</text>')
-
-    for nome, (grupo, x, y, desc, cols) in TABELAS.items():
-        fill, stroke = CORES[grupo]
-        x, y = T(x, y)
-        h = altura(nome)
-        s.append(f'<text x="{x}" y="{y-6}" font-size="11" font-style="italic" fill="#666">{escape(desc)}</text>')
-        s.append(f'<rect x="{x}" y="{y}" width="{W}" height="{h}" fill="#fff" stroke="{stroke}" stroke-width="1.5"/>')
-        s.append(f'<rect x="{x}" y="{y}" width="{W}" height="{HDR}" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>')
-        s.append(f'<text x="{x+W/2}" y="{y+22}" font-size="14" font-weight="bold" text-anchor="middle" fill="#222">{nome}</text>')
-        for i, (k, c, tp, nn) in enumerate(cols):
-            ry = y + HDR + ROW * i
-            if i:
-                s.append(f'<line x1="{x}" y1="{ry}" x2="{x+W}" y2="{ry}" stroke="#E5E5E5"/>')
-            ty = ry + 16
-            peso = ' font-weight="bold"' if "PK" in k else ""
-            sub = ' text-decoration="underline"' if "FK" in k else ""
-            s.append(f'<text x="{x+CK/2}" y="{ty}" font-size="11" text-anchor="middle" fill="#222"{peso}>{escape(k)}</text>')
-            s.append(f'<text x="{x+CK+6}" y="{ty}" font-size="12" fill="#222"{peso}{sub}>{escape(c)}</text>')
-            s.append(f'<text x="{x+CK+CN+6}" y="{ty}" font-size="11" fill="#666">{escape(tp)}</text>')
-            if nn:
-                s.append(f'<text x="{x+CK+CN+CT+CNN/2}" y="{ty}" font-size="10" text-anchor="middle" fill="#666">NN</text>')
-        s.append(f'<line x1="{x+CK}" y1="{y+HDR}" x2="{x+CK}" y2="{y+h}" stroke="#E5E5E5"/>')
-
-    lx, ly = T(40, LEGENDA_Y)
-    s.append(f'<rect x="{lx}" y="{ly}" width="1880" height="120" rx="6" fill="#FFF2CC" stroke="#D6B656"/>')
-    s.append(f'<text x="{lx+12}" y="{ly+20}" font-size="12" font-weight="bold" fill="#222">Legenda</text>')
-    for i, t in enumerate(NOTAS):
-        s.append(f'<text x="{lx+12}" y="{ly+40+18*i}" font-size="12" fill="#333">{escape(t)}</text>')
-    s.append("</svg>")
-    return "\n".join(s)
+LEG_Y, LEG_H = 966, 240
 
 
-open(f"{DOCS}/diagrama-er.drawio", "w", encoding="utf-8").write(gerar_drawio())
-open(f"{DOCS}/diagrama-er.svg", "w", encoding="utf-8").write(gerar_svg())
-print("ok")
+def gerar_legenda(add, texto):
+    def cartao(id_, x, w):
+        add(f'<mxCell id="{id_}" value="" style="rounded=1;arcSize=2;absoluteArcSize=1;html=1;'
+            f'fillColor=#FAFBFC;strokeColor=#D9DEE4;" vertex="1" parent="1">'
+            f'<mxGeometry x="{x}" y="{LEG_Y}" width="{w}" height="{LEG_H}" as="geometry"/></mxCell>')
+
+    est_txt = f"fontSize=12;fontColor={TINTA};align=left;verticalAlign=top;spacing=0;"
+
+    # Cartão 1: notação
+    x, w = 40, 530
+    cartao("leg_notacao", x, w)
+    texto("leg_notacao_tit", f'<b style="font-size:14px;color:{TINTA}">Como ler</b>', x + 24, LEG_Y + 16, 300, 20,
+          "align=left;verticalAlign=middle;spacing=0;")
+    exemplos = [
+        ("ERmandOne", "<b>exatamente 1</b> → 0..N &nbsp;<span style='color:#7B8794'>FK obrigatória (NOT NULL)</span>"),
+        ("ERzeroToOne", "<b>0 ou 1</b> → 0..N &nbsp;<span style='color:#7B8794'>FK opcional (aceita NULL)</span>"),
+    ]
+    for i, (ini, txt) in enumerate(exemplos):
+        yy = LEG_Y + 58 + i * 30
+        add(f'<mxCell id="leg_ex{i}" value="" style="edgeStyle=none;html=1;strokeColor={LINHA};strokeWidth=1.4;'
+            f'startArrow={ini};endArrow=ERzeroToMany;startFill=0;endFill=0;startSize=11;endSize=11;" '
+            f'edge="1" parent="1"><mxGeometry relative="1" as="geometry">'
+            f'<mxPoint x="{x + 24}" y="{yy}" as="sourcePoint"/><mxPoint x="{x + 104}" y="{yy}" as="targetPoint"/>'
+            f'</mxGeometry></mxCell>')
+        texto(f"leg_ex{i}_t", txt, x + 120, yy - 9, w - 144, 18, est_txt.replace("verticalAlign=top", "verticalAlign=middle"))
+    texto("leg_ex_nota",
+          "O traço sai da tabela-pai (lado “um”) e o pé-de-galinha entra na linha da coluna FK da tabela-filha. "
+          "O verbo se lê do pai para o filho: <i>contato inicia conversa</i>.",
+          x + 24, LEG_Y + 108, w - 48, 32, f"fontSize=11;fontColor={TINTA2};align=left;verticalAlign=top;spacing=0;")
+
+    marc = [("PK", "chave primária (linha destacada)"), ("FK", "chave estrangeira (sublinhada)"),
+            ("UQ", "valor único"), ("NN", "obrigatório (NOT NULL)"), ("CK", "regra CHECK"),
+            ("UQ¹", "unicidade parcial ou composta")]
+    for i, (m, d) in enumerate(marc):
+        xx = x + 24 + (i % 2) * 250
+        yy = LEG_Y + 146 + (i // 2) * 25
+        cor = "#9A6B00" if m == "PK" else TINTA2
+        fundo = PK_FUNDO if m == "PK" else "#FFFFFF"
+        add(f'<mxCell id="leg_m{i}" value="{q(m)}" style="rounded=1;arcSize=20;html=1;fontFamily={FONTE};'
+            f'fontSize=10;fontStyle=1;fontColor={cor};fillColor={fundo};strokeColor=#D9DEE4;" vertex="1" '
+            f'parent="1"><mxGeometry x="{xx}" y="{yy}" width="34" height="19" as="geometry"/></mxCell>')
+        texto(f"leg_m{i}_t", escape(d), xx + 42, yy, 200, 19,
+              f"fontSize=11;fontColor={TINTA2};align=left;verticalAlign=middle;spacing=0;")
+    texto("leg_tipos", "Tipos PostgreSQL gerados pelo Django · timestamptz = timestamp with time zone",
+          x + 24, LEG_Y + 218, w - 48, 16,
+          f"fontSize=10;fontColor={TINTA3};align=left;verticalAlign=middle;spacing=0;")
+
+    # Cartão 2: regras de integridade
+    x, w = 1270, 840
+    cartao("leg_regras", x, w)
+    texto("leg_regras_tit", f'<b style="font-size:14px;color:{TINTA}">Regras de integridade no banco</b>',
+          x + 24, LEG_Y + 16, 400, 20, "align=left;verticalAlign=middle;spacing=0;")
+    regras = [
+        ("UQ¹", "<b>uma conversa aberta por contato</b>: UNIQUE (contato_id) WHERE status &lt;&gt; 'encerrada'"),
+        ("UQ²", "<b>mensagem do Telegram sem duplicidade</b>: UNIQUE (conversa_id, telegram_message_id) "
+                "WHERE remetente = 'cliente'"),
+        ("UQ³", "<b>pergunta única por categoria</b>: UNIQUE (categoria_id, pergunta)"),
+        ("CK", "<b>contato</b>: canal telegram exige telegram_chat_id; canal web exige web_sessao"),
+        ("CK", "<b>conversa</b>: status 'humano' exige atendente_id; avaliacao vazia ou de 1 a 5"),
+        ("CK", "<b>mensagem</b>: remetente 'atendente' exige atendente_id"),
+        ("CK", "<b>não negativos</b>: categoriafaq.ordem, perguntafaq.vezes_usada"),
+    ]
+    for i, (m, txt) in enumerate(regras):
+        yy = LEG_Y + 48 + i * 24
+        add(f'<mxCell id="leg_r{i}" value="{q(m)}" style="rounded=1;arcSize=20;html=1;fontFamily={FONTE};'
+            f'fontSize=10;fontStyle=1;fontColor={TINTA2};fillColor=#FFFFFF;strokeColor=#D9DEE4;" vertex="1" '
+            f'parent="1"><mxGeometry x="{x + 24}" y="{yy}" width="34" height="19" as="geometry"/></mxCell>')
+        texto(f"leg_r{i}_t", txt, x + 68, yy, w - 92, 19,
+              f"fontSize=11;fontColor={TINTA2};align=left;verticalAlign=middle;spacing=0;")
+
+
+if __name__ == "__main__":
+    erros = conferir()
+    if erros:
+        print("\n".join(erros))
+        sys.exit(1)
+    xml = gerar_drawio()
+    ET.fromstring(xml.encode("utf-8"))  # XML bem-formado
+    destino = os.path.join(DOCS, "diagrama-er.drawio")
+    with open(destino, "w", encoding="utf-8") as f:
+        f.write(xml)
+    print("ok:", destino)
