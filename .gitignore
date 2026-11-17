@@ -7,3 +7,4 @@ staticfiles/
 .vercel
 .DS_Store
 .env.local
+.env*
