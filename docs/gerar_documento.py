@@ -358,7 +358,7 @@ def acesso_rapido(doc):
         ("Painel dos funcionários", link_celula(f"{SITE}/painel/")),
         ("Chat pelo site", link_celula(f"{SITE}/chat/")),
         ("Bot no Telegram", link_celula("https://t.me/felipeprojeto_bot", extra="  (@felipeprojeto_bot)")),
-        ("Código-fonte (GitHub, público)", link_celula("https://github.com/daviddanielbp/chatbot-atendimento")),
+        ("Código-fonte (GitHub, público)", link_celula("https://github.com/luis1527/chatbot-atendimento")),
         ("Status do servidor", link_celula(f"{SITE}/saude/")),
     ]
     tabela(doc, ("Item", "Endereço"), linhas, (5.2, 11.4), primeira_negrito=True)
