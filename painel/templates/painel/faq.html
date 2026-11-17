@@ -1,0 +1,81 @@
+{% extends "painel/base.html" %}
+{% block titulo %}FAQ{% endblock %}
+{% block titulo_topo %}Base de conhecimento (FAQ){% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Perguntas frequentes</h1>
+    <p>O bot usa estas respostas antes de chamar a IA. Perguntas inativas são ignoradas.</p>
+  </div>
+  <div class="espaco"></div>
+  {% if request.user.is_supervisor %}
+  <a class="btn" href="{% url 'painel:faq_categoria_nova' %}">+ Categoria</a>
+  <a class="btn primario" href="{% url 'painel:faq_pergunta_nova' %}">+ Nova pergunta</a>
+  {% endif %}
+</div>
+
+<div class="faq-layout">
+  <div class="cartao">
+    <div class="cartao-cabeca"><h3>Categorias</h3></div>
+    <ul class="lista-categorias">
+      <li><a href="?" class="{% if not filtros.categoria %}ativo{% endif %}">Todas</a></li>
+      {% for c in categorias %}
+      <li style="display:flex;align-items:center">
+        <a href="?categoria={{ c.pk }}" class="{% if filtros.categoria == c.pk|stringformat:'s' %}ativo{% endif %}" style="flex:1">
+          {{ c.nome }} <span class="badge">{{ c.total }}</span>
+        </a>
+        {% if request.user.is_supervisor %}<a class="editar" href="{% url 'painel:faq_categoria' c.pk %}" title="Editar categoria">✏️</a>{% endif %}
+      </li>
+      {% empty %}
+      <li class="suave pequeno" style="padding:8px 10px">Nenhuma categoria.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="cartao">
+    <form class="filtros" method="get">
+      {% if filtros.categoria %}<input type="hidden" name="categoria" value="{{ filtros.categoria }}">{% endif %}
+      <input type="search" name="q" value="{{ filtros.q }}" placeholder="Buscar na pergunta, resposta ou palavras-chave…">
+      <select name="situacao">
+        <option value="">Ativas e inativas</option>
+        <option value="ativas" {% if filtros.situacao == 'ativas' %}selected{% endif %}>Só ativas</option>
+        <option value="inativas" {% if filtros.situacao == 'inativas' %}selected{% endif %}>Só inativas</option>
+      </select>
+      <button class="btn primario" type="submit">Buscar</button>
+    </form>
+    <div class="tabela-wrap">
+      <table class="tabela">
+        <thead><tr><th>Pergunta</th><th>Categoria</th><th>Usada</th><th>Situação</th>{% if request.user.is_supervisor %}<th></th>{% endif %}</tr></thead>
+        <tbody>
+        {% for p in perguntas %}
+          <tr class="pergunta-faq {% if not p.ativa %}linha-inativa{% endif %}">
+            <td style="max-width:460px">
+              <strong>{{ p.pergunta }}</strong>
+              <div class="resposta">{{ p.resposta }}</div>
+              {% if p.palavras_chave %}<div class="pequeno suave">🔑 {{ p.palavras_chave }}</div>{% endif %}
+            </td>
+            <td>{{ p.categoria.nome }}</td>
+            <td>{{ p.vezes_usada }}×</td>
+            <td>{% if p.ativa %}<span class="badge sucesso">Ativa</span>{% else %}<span class="badge cinza">Inativa</span>{% endif %}</td>
+            {% if request.user.is_supervisor %}
+            <td>
+              <div class="acoes">
+                <form method="post" action="{% url 'painel:faq_pergunta_alternar' p.pk %}">
+                  {% csrf_token %}<input type="hidden" name="voltar" value="{{ request.get_full_path }}">
+                  <button class="btn p" type="submit">{% if p.ativa %}Desativar{% else %}Ativar{% endif %}</button>
+                </form>
+                <a class="btn p" href="{% url 'painel:faq_pergunta' p.pk %}">Editar</a>
+              </div>
+            </td>
+            {% endif %}
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="vazio-msg">Nenhuma pergunta encontrada.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

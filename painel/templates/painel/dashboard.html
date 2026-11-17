@@ -1,0 +1,175 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Dashboard{% endblock %}
+{% block titulo_topo %}Dashboard{% endblock %}
+
+{% block conteudo %}
+{% with c=dados.cards %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Visão geral do atendimento</h1>
+    <p>Cards de “hoje” e “agora” são em tempo real; os demais consideram os últimos {{ dados.dias }} dias.</p>
+  </div>
+  <div class="espaco"></div>
+  <form method="get">
+    <select name="dias" onchange="this.form.submit()" aria-label="Período">
+      {% for valor, rotulo in opcoes_dias %}<option value="{{ valor }}" {% if valor == dados.dias %}selected{% endif %}>Últimos {{ rotulo }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="cards">
+  <div class="cartao card-num"><div class="rotulo">💬 Conversas hoje</div><div class="valor">{{ c.conversas_hoje }}</div><div class="det">iniciadas desde 0h</div></div>
+  <div class="cartao card-num"><div class="rotulo">✉️ Mensagens hoje</div><div class="valor">{{ c.mensagens_hoje }}</div><div class="det">clientes, bot e atendentes</div></div>
+  <div class="cartao card-num {% if c.na_fila %}destaque{% endif %}"><div class="rotulo">⏳ Na fila agora</div><div class="valor">{{ c.na_fila }}</div><div class="det">{{ c.em_atendimento }} em atendimento · {{ c.online }} online</div></div>
+  <div class="cartao card-num"><div class="rotulo">⏱ Espera média na fila</div><div class="valor">{{ c.espera_media }}</div><div class="det">da fila até alguém assumir</div></div>
+  <div class="cartao card-num"><div class="rotulo">🤖 Resolvidas só pelo bot</div><div class="valor">{% if c.pct_bot is not None %}{{ c.pct_bot }}%{% else %}—{% endif %}</div><div class="det">de {{ c.total_encerradas }} encerradas</div></div>
+  <div class="cartao card-num"><div class="rotulo">⭐ Satisfação média</div><div class="valor">{% if c.nota_media is not None %}{{ c.nota_media }}<span style="font-size:16px;color:var(--texto-fraco)">/5</span>{% else %}—{% endif %}</div><div class="det">{{ c.total_avaliacoes }} avaliação(ões)</div></div>
+</div>
+{% endwith %}
+
+<div class="graficos">
+  <div class="cartao largo">
+    <div class="cartao-cabeca"><h2>Mensagens por dia</h2><span class="suave pequeno">últimos 14 dias</span></div>
+    <div class="cartao-corpo"><div class="area-grafico"><canvas id="g-dias" aria-label="Mensagens por dia"></canvas></div></div>
+  </div>
+  <div class="cartao">
+    <div class="cartao-cabeca"><h2>Intenções mais comuns</h2></div>
+    <div class="cartao-corpo"><div class="area-grafico alta"><canvas id="g-intencoes"></canvas></div></div>
+  </div>
+  <div class="cartao">
+    <div class="cartao-cabeca"><h2>Perguntas do FAQ mais usadas</h2><span class="suave pequeno">total acumulado</span></div>
+    <div class="cartao-corpo"><div class="area-grafico alta"><canvas id="g-faq"></canvas></div></div>
+  </div>
+  <div class="cartao terco">
+    <div class="cartao-cabeca"><h2>Canal</h2><span class="suave pequeno">conversas</span></div>
+    <div class="cartao-corpo"><div class="area-grafico"><canvas id="g-canais"></canvas></div></div>
+  </div>
+  <div class="cartao terco">
+    <div class="cartao-cabeca"><h2>Origem das respostas</h2></div>
+    <div class="cartao-corpo"><div class="area-grafico"><canvas id="g-origens"></canvas></div></div>
+  </div>
+  <div class="cartao terco">
+    <div class="cartao-cabeca"><h2>Notas de satisfação</h2></div>
+    <div class="cartao-corpo"><div class="area-grafico"><canvas id="g-notas"></canvas></div></div>
+  </div>
+</div>
+
+{% if request.user.is_supervisor %}
+<div class="cartao">
+  <div class="cartao-cabeca"><h2>Desempenho por funcionário</h2><span class="suave pequeno">últimos {{ dados.dias }} dias</span></div>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>Funcionário</th><th>Cargo</th><th>Status</th><th>Atendimentos</th><th>Em andamento</th><th>Tempo médio p/ assumir</th><th>Nota média</th></tr></thead>
+      <tbody>
+      {% for f in dados.funcionarios %}
+        <tr>
+          <td><strong>{{ f.usuario.nome_exibicao }}</strong> <span class="suave pequeno mono">{{ f.usuario.username }}</span></td>
+          <td>{{ f.usuario.get_cargo_display }}</td>
+          <td>{% if f.usuario.online %}<span class="badge sucesso">● Online</span>{% else %}<span class="badge cinza">Ausente</span>{% endif %}</td>
+          <td>{{ f.atendimentos }}</td>
+          <td>{{ f.em_andamento }}</td>
+          <td>{{ f.tempo_assumir }}</td>
+          <td>{% if f.nota is not None %}⭐ {{ f.nota }}{% else %}—{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="vazio-msg">Nenhum funcionário ativo.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{{ graficos|json_script:"dados-graficos" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  if (!window.Chart) return;
+  const G = JSON.parse(document.getElementById("dados-graficos").textContent);
+  const COR = { primaria: "#4f46e5", primariaClara: "rgba(79,70,229,.12)", telegram: "#229ED9", site: "#7c3aed",
+                faq: "#16a34a", ia: "#7c3aed", humano: "#2563eb", nota: "#f59e0b", texto: "#6b7280", grade: "#eef0f4" };
+
+  Chart.defaults.font.family = "Inter, system-ui, sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = COR.texto;
+  Chart.defaults.plugins.legend.labels.usePointStyle = true;
+  Chart.defaults.plugins.legend.labels.boxWidth = 8;
+  Chart.defaults.plugins.tooltip.backgroundColor = "#111827";
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 8;
+  Chart.defaults.maintainAspectRatio = false;
+
+  function semDados(id, dados) {
+    if (dados.some(function (v) { return v > 0; })) return false;
+    const area = document.getElementById(id).parentNode;
+    area.insertAdjacentHTML("beforeend", '<div class="sem-dados">Sem dados no período</div>');
+    return true;
+  }
+  const eixos = function (horizontal) {
+    const valor = { beginAtZero: true, grid: { color: COR.grade }, border: { display: false }, ticks: { precision: 0 } };
+    const cat = { grid: { display: false }, border: { display: false } };
+    return horizontal ? { x: valor, y: cat } : { x: cat, y: valor };
+  };
+  function cortar(rotulos, n) {
+    return rotulos.map(function (r) { return r.length > n ? r.slice(0, n - 1) + "…" : r; });
+  }
+
+  // Mensagens por dia: duas séries, uma escala.
+  new Chart(document.getElementById("g-dias"), {
+    type: "line",
+    data: {
+      labels: G.mensagens_por_dia.labels,
+      datasets: [
+        { label: "Todas as mensagens", data: G.mensagens_por_dia.total, borderColor: COR.primaria, backgroundColor: COR.primariaClara,
+          fill: true, tension: .35, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5 },
+        { label: "Enviadas por clientes", data: G.mensagens_por_dia.clientes, borderColor: COR.telegram, backgroundColor: COR.telegram,
+          tension: .35, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, borderDash: [5, 4] },
+      ],
+    },
+    options: { interaction: { mode: "index", intersect: false }, scales: eixos(false),
+               plugins: { legend: { position: "top", align: "end" } } },
+  });
+
+  function barrasHorizontais(id, serie, cor, rotulo) {
+    if (semDados(id, serie.dados)) return;
+    new Chart(document.getElementById(id), {
+      type: "bar",
+      data: { labels: cortar(serie.labels, 34), datasets: [{ label: rotulo, data: serie.dados, backgroundColor: cor,
+        borderRadius: 4, borderSkipped: "start", barThickness: 16 }] },
+      options: { indexAxis: "y", scales: eixos(true), plugins: { legend: { display: false },
+        tooltip: { callbacks: { title: function (i) { return serie.labels[i[0].dataIndex]; } } } } },
+    });
+  }
+  barrasHorizontais("g-intencoes", G.intencoes, COR.primaria, "Mensagens");
+  barrasHorizontais("g-faq", G.faq, COR.faq, "Vezes usada");
+
+  function rosca(id, serie, cores) {
+    if (semDados(id, serie.dados)) return;
+    new Chart(document.getElementById(id), {
+      type: "doughnut",
+      data: { labels: serie.labels, datasets: [{ data: serie.dados, backgroundColor: cores, borderColor: "#fff", borderWidth: 2 }] },
+      options: { cutout: "62%", plugins: { legend: { position: "bottom" },
+        tooltip: { callbacks: { label: function (ctx) {
+          const total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+          return " " + ctx.label + ": " + ctx.parsed + " (" + Math.round(100 * ctx.parsed / total) + "%)";
+        } } } } },
+    });
+  }
+  rosca("g-canais", G.canais, [COR.telegram, COR.site]);
+  rosca("g-origens", G.origens, [COR.faq, COR.ia, COR.humano]);
+
+  if (!semDados("g-notas", G.notas.dados)) {
+    new Chart(document.getElementById("g-notas"), {
+      type: "bar",
+      data: { labels: G.notas.labels, datasets: [{ label: "Avaliações", data: G.notas.dados, backgroundColor: COR.nota,
+        borderRadius: 4, borderSkipped: "start", maxBarThickness: 36 }] },
+      options: { scales: eixos(false), plugins: { legend: { display: false } } },
+    });
+  }
+})();
+</script>
+{% endblock %}

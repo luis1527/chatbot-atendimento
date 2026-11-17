@@ -1,0 +1,106 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Painel{% endblock %} · {{ NOME_EMPRESA }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'painel/painel.css' %}">
+  {% block cabeca %}{% endblock %}
+</head>
+<body>
+{% with u=request.user %}
+<div class="app">
+  <aside class="sidebar">
+    <div class="marca">
+      <span class="logo">💬</span>
+      <span>{{ NOME_EMPRESA }}<small>Painel de atendimento</small></span>
+    </div>
+    <nav class="nav">
+      <a href="{% url 'painel:fila' %}" class="{% if menu == 'atendimentos' %}ativo{% endif %}">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Atendimentos</span>
+        <span class="badge perigo vazio" id="badge-fila" title="Conversas aguardando na fila">0</span>
+      </a>
+      <a href="{% url 'painel:tickets' %}" class="{% if menu == 'tickets' %}ativo{% endif %}">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><path d="M13 5v2M13 11v2M13 17v2"/></svg>
+        <span>Tickets</span>
+      </a>
+      <a href="{% url 'painel:dashboard' %}" class="{% if menu == 'dashboard' %}ativo{% endif %}">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="{% url 'painel:faq' %}" class="{% if menu == 'faq' %}ativo{% endif %}">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <span>FAQ</span>
+      </a>
+      {% if u.is_supervisor %}
+      <a href="{% url 'painel:funcionarios' %}" class="{% if menu == 'funcionarios' %}ativo{% endif %}">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Funcionários</span>
+      </a>
+      {% endif %}
+    </nav>
+    <div class="nav-rodape">
+      <a class="telegram" href="{{ TELEGRAM_LINK }}" target="_blank" rel="noopener">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+        Abrir bot no Telegram
+      </a>
+      {% if u.is_supervisor %}
+      <a href="{% url 'admin:index' %}" target="_blank" rel="noopener">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Administração (Django)
+      </a>
+      {% endif %}
+    </div>
+  </aside>
+
+  <div class="principal">
+    <header class="topo">
+      <div class="titulo-pagina">{% block titulo_topo %}{% endblock %}</div>
+      <div class="espaco"></div>
+      <button type="button" class="toggle-online {% if u.online %}ligado{% endif %}" id="toggle-online"
+              data-url="{% url 'painel:api_online' %}" title="Sua disponibilidade para atender">
+        <span class="trilho"></span>
+        <span class="rotulo-online">{% if u.online %}Online{% else %}Ausente{% endif %}</span>
+      </button>
+      <div class="usuario-topo">
+        <span class="avatar">{{ u.nome_exibicao|slice:":2" }}</span>
+        <div class="textos">
+          <div class="nome">{{ u.nome_exibicao }}</div>
+          <div class="cargo">{{ u.get_cargo_display }}</div>
+        </div>
+      </div>
+      <form method="post" action="{% url 'painel:logout' %}">
+        {% csrf_token %}
+        <button class="btn fantasma p" type="submit" title="Sair">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span class="txt">Sair</span>
+        </button>
+      </form>
+    </header>
+
+    <main class="conteudo {% block classe_conteudo %}{% endblock %}">
+      {% if messages %}
+      <ul class="mensagens-flash">
+        {% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% block conteudo %}{% endblock %}
+    </main>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+{% endwith %}
+<script>
+  window.PAINEL = {
+    statusUrl: "{% url 'painel:api_status' %}",
+    filaUrl: "{% url 'painel:fila' %}?aba=fila",
+  };
+</script>
+<script src="{% static 'painel/painel.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

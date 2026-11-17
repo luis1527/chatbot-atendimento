@@ -91,8 +91,8 @@ class Contato(models.Model):
             models.CheckConstraint(
                 name="contato_identificador_por_canal",
                 condition=(
-                    Q(canal="telegram", telegram_chat_id__isnull=False)
-                    | Q(canal="web", web_sessao__isnull=False)
+                    Q(canal="telegram", telegram_chat_id__isnull=False, web_sessao__isnull=True)
+                    | Q(canal="web", web_sessao__isnull=False, telegram_chat_id__isnull=True)
                 ),
             ),
         ]
@@ -196,8 +196,9 @@ class Conversa(models.Model):
         max_length=20, choices=Modo.choices, default=Modo.MENU,
         help_text="Em qual 'chat' do menu o cliente está (só vale enquanto status=bot).",
     )
+    # PROTECT: funcionário com histórico não é apagado (desative com is_active=False).
     atendente = models.ForeignKey(
-        Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name="conversas",
+        Usuario, on_delete=models.PROTECT, null=True, blank=True, related_name="conversas",
     )
     motivo_escalonamento = models.CharField(max_length=255, blank=True)
     avaliacao = models.PositiveSmallIntegerField(
@@ -254,7 +255,7 @@ class Mensagem(models.Model):
     conversa = models.ForeignKey(Conversa, on_delete=models.CASCADE, related_name="mensagens")
     remetente = models.CharField(max_length=20, choices=Remetente.choices)
     atendente = models.ForeignKey(
-        Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name="mensagens_enviadas",
+        Usuario, on_delete=models.PROTECT, null=True, blank=True, related_name="mensagens_enviadas",
     )
     texto = models.TextField()
     intencao = models.ForeignKey(Intencao, on_delete=models.SET_NULL, null=True, blank=True, related_name="mensagens")

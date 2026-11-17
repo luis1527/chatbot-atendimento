@@ -1,0 +1,58 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Funcionários{% endblock %}
+{% block titulo_topo %}Funcionários{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Funcionários</h1>
+    <p>Quem acessa o painel. O <strong>nome de exibição</strong> é o que o cliente vê no Telegram.</p>
+  </div>
+  <div class="espaco"></div>
+  <a class="btn primario" href="{% url 'painel:funcionario_novo' %}">+ Novo funcionário</a>
+</div>
+
+<div class="cartao">
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>Funcionário</th><th>Login</th><th>Cargo</th><th>Status</th><th>Atendendo agora</th><th>Total</th><th>Último acesso</th><th></th></tr></thead>
+      <tbody>
+      {% for f in lista %}
+        <tr class="{% if not f.is_active %}linha-inativa{% endif %}">
+          <td>
+            <div style="display:flex;gap:10px;align-items:center">
+              <span class="avatar">{{ f.nome_exibicao|slice:":2" }}</span>
+              <div><strong>{{ f.nome_exibicao }}</strong>{% if f.pk == request.user.pk %} <span class="badge info p">você</span>{% endif %}
+                <div class="pequeno suave">{{ f.get_full_name|default:"" }}{% if f.email %} · {{ f.email }}{% endif %}</div></div>
+            </div>
+          </td>
+          <td class="mono">{{ f.username }}</td>
+          <td>{% if f.is_supervisor %}<span class="badge info">{{ f.get_cargo_display }}</span>{% else %}<span class="badge cinza">{{ f.get_cargo_display }}</span>{% endif %}</td>
+          <td>
+            {% if not f.is_active %}<span class="badge perigo-claro">Desativado</span>
+            {% elif f.online %}<span class="badge sucesso">● Online</span>
+            {% else %}<span class="badge cinza">Ausente</span>{% endif %}
+          </td>
+          <td>{{ f.abertas }}</td>
+          <td>{{ f.total }}</td>
+          <td class="suave">{{ f.last_login|date:"d/m/Y H:i"|default:"nunca" }}</td>
+          <td>
+            <div class="acoes">
+              <a class="btn p" href="{% url 'painel:funcionario_editar' f.pk %}">Editar</a>
+              <a class="btn p" href="{% url 'painel:funcionario_senha' f.pk %}">Senha</a>
+              {% if f.pk != request.user.pk %}
+              <form method="post" action="{% url 'painel:funcionario_alternar' f.pk %}"
+                    onsubmit="return confirm('{% if f.is_active %}Desativar{% else %}Reativar{% endif %} {{ f.username|escapejs }}?')">
+                {% csrf_token %}
+                <button class="btn p {% if f.is_active %}perigo{% endif %}" type="submit">{% if f.is_active %}Desativar{% else %}Ativar{% endif %}</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

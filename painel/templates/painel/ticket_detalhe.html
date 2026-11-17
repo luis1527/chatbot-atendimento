@@ -1,0 +1,86 @@
+{% extends "painel/base.html" %}
+{% block titulo %}{{ ticket.protocolo }}{% endblock %}
+{% block titulo_topo %}<a href="{% url 'painel:tickets' %}" style="color:inherit">Tickets</a> <span class="suave">/ {{ ticket.protocolo }}</span>{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1><span class="mono" style="font-size:20px">{{ ticket.protocolo }}</span> · {{ ticket.assunto }}</h1>
+    <p>
+      {% include "painel/_status_ticket.html" with status=ticket.status rotulo=ticket.get_status_display %}
+      &nbsp;Prioridade <span class="prio-{{ ticket.prioridade }}">{{ ticket.get_prioridade_display }}</span>
+      · {{ ticket.get_categoria_display }} · aberto em {{ ticket.criado_em|date:"d/m/Y \à\s H:i" }}
+    </p>
+  </div>
+  <div class="espaco"></div>
+  <a class="btn" href="{% url 'painel:tickets' %}">← Voltar</a>
+</div>
+
+<div class="ticket-grid">
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2>Descrição do cliente</h2></div>
+      <div class="cartao-corpo"><div class="descricao-ticket">{{ ticket.descricao }}</div></div>
+    </div>
+
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2>Atualizar ticket</h2></div>
+      <form method="post" class="cartao-corpo">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="erro-form">{{ form.non_field_errors }}</div>{% endif %}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+          <div class="campo">
+            <label for="{{ form.status.id_for_label }}">Status</label>
+            {{ form.status }}
+            {% for e in form.status.errors %}<span class="erro">{{ e }}</span>{% endfor %}
+          </div>
+          <div class="campo">
+            <label for="{{ form.responsavel.id_for_label }}">Responsável</label>
+            {{ form.responsavel }}
+            {% for e in form.responsavel.errors %}<span class="erro">{{ e }}</span>{% endfor %}
+          </div>
+        </div>
+        <div class="campo">
+          <label for="{{ form.resposta.id_for_label }}">{{ form.resposta.label }}</label>
+          {{ form.resposta }}
+          <span class="ajuda">Quando o status muda para <strong>Resolvido</strong>, o cliente recebe esta resposta pelo {{ ticket.contato.get_canal_display }}. Em <strong>Em andamento</strong>, ele recebe um aviso com o seu nome.</span>
+        </div>
+        <div class="campo campo-check">
+          {{ form.avisar_cliente }}
+          <label for="{{ form.avisar_cliente.id_for_label }}" style="font-weight:500">{{ form.avisar_cliente.label }}</label>
+        </div>
+        <button class="btn primario" type="submit">Salvar alterações</button>
+      </form>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2>Cliente</h2></div>
+      <div class="cartao-corpo">
+        <dl class="dados">
+          <dt>Nome</dt><dd>{{ ticket.contato.nome }}</dd>
+          <dt>Canal</dt><dd><span class="badge {% if ticket.contato.canal == 'telegram' %}telegram{% else %}web{% endif %}">{{ ticket.contato.get_canal_display }}</span></dd>
+          {% if ticket.contato.telegram_username %}<dt>Telegram</dt><dd>@{{ ticket.contato.telegram_username }}</dd>{% endif %}
+          <dt>E-mail</dt><dd>{{ ticket.contato.email|default:"—" }}</dd>
+          <dt>Telefone</dt><dd>{{ ticket.contato.telefone|default:"—" }}</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2>Detalhes</h2></div>
+      <div class="cartao-corpo">
+        <dl class="dados">
+          <dt>Responsável</dt><dd>{{ ticket.responsavel|default:"—" }}</dd>
+          <dt>Atualizado</dt><dd>{{ ticket.atualizado_em|date:"d/m/Y H:i" }}</dd>
+          {% if ticket.resolvido_em %}<dt>Resolvido</dt><dd>{{ ticket.resolvido_em|date:"d/m/Y H:i" }}</dd>{% endif %}
+          <dt>Conversa</dt>
+          <dd>{% if ticket.conversa %}<a href="{% url 'painel:conversa' ticket.conversa.pk %}">Abrir conversa #{{ ticket.conversa.pk }} →</a>
+              <div class="suave pequeno">{{ ticket.conversa.get_status_display }}</div>
+              {% else %}—{% endif %}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

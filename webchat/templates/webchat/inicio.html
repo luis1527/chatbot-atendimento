@@ -1,0 +1,100 @@
+{% extends "webchat/base.html" %}
+{% load static %}
+{% block body_class %}pagina-inicio{% endblock %}
+{% block corpo %}
+<header class="topo">
+  <div class="container topo__linha">
+    <a class="marca" href="{% url 'webchat:inicio' %}">
+      <span class="marca__icone" aria-hidden="true">🤖</span>
+      <span>{{ NOME_EMPRESA }}</span>
+    </a>
+    <a class="link-discreto" href="/painel/">Área do funcionário</a>
+  </div>
+</header>
+
+<main id="conteudo">
+  <section class="hero">
+    <div class="container hero__grade">
+      <div class="hero__texto">
+        <p class="selo">Atendimento 24h com assistente virtual</p>
+        <h1>{{ NOME_EMPRESA }} — Atendimento</h1>
+        <p class="hero__lead">
+          Tire dúvidas, abra um ticket ou fale com um atendente.
+          Você escolhe onde: pelo <strong>Telegram</strong> ou aqui mesmo, <strong>pelo site</strong>.
+          É o mesmo assistente, com o mesmo histórico de regras.
+        </p>
+        <div class="hero__acoes">
+          <a class="botao botao--telegram botao--grande" href="{{ TELEGRAM_LINK }}" target="_blank" rel="noopener">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+            Abrir no Telegram
+          </a>
+          <a class="botao botao--primario botao--grande" href="{% url 'webchat:chat' %}">
+            <span aria-hidden="true">💬</span> Conversar pelo site
+          </a>
+        </div>
+        <p class="hero__nota">No Telegram, procure por <strong>@{{ TELEGRAM_BOT_USERNAME }}</strong>.</p>
+      </div>
+
+      <div class="cartao qr">
+        <div id="qrcode" class="qr__codigo" data-link="{{ TELEGRAM_LINK }}" role="img"
+             aria-label="QR code para abrir @{{ TELEGRAM_BOT_USERNAME }} no Telegram"></div>
+        <p class="qr__legenda">Aponte a câmera do celular para abrir o bot no Telegram</p>
+        <a class="qr__link" href="{{ TELEGRAM_LINK }}" target="_blank" rel="noopener">{{ TELEGRAM_LINK }}</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="recursos" aria-labelledby="titulo-recursos">
+    <div class="container">
+      <h2 id="titulo-recursos">O que o assistente faz</h2>
+      <ul class="recursos__grade">
+        <li class="cartao recurso">
+          <span class="recurso__icone" aria-hidden="true">❓</span>
+          <h3>Chat de dúvida</h3>
+          <p>Respostas rápidas para as perguntas mais comuns, direto da nossa base de conhecimento.</p>
+        </li>
+        <li class="cartao recurso">
+          <span class="recurso__icone" aria-hidden="true">💬</span>
+          <h3>Chat de conversa</h3>
+          <p>Converse livremente com o assistente de IA, que entende o que você escreve.</p>
+        </li>
+        <li class="cartao recurso">
+          <span class="recurso__icone" aria-hidden="true">📝</span>
+          <h3>Abrir ticket</h3>
+          <p>Registre uma solicitação, receba um protocolo e acompanhe até ser resolvida.</p>
+        </li>
+        <li class="cartao recurso">
+          <span class="recurso__icone" aria-hidden="true">👤</span>
+          <h3>Falar com atendente</h3>
+          <p>Precisa de uma pessoa? Você entra na fila e um atendente assume a conversa.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="como" aria-labelledby="titulo-como">
+    <div class="container como__grade">
+      <div>
+        <h2 id="titulo-como">Telegram ou site, tanto faz</h2>
+        <p>Os dois canais falam com o mesmo assistente. As conversas chegam para a mesma equipe de atendimento, que responde em tempo real.</p>
+      </div>
+      <ol class="passos">
+        <li><span class="passos__n">1</span> Escolha o Telegram ou o chat do site</li>
+        <li><span class="passos__n">2</span> Use o menu para dizer o que precisa</li>
+        <li><span class="passos__n">3</span> Se precisar, um atendente humano assume</li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <div class="container rodape__linha">
+    <span>© {% now "Y" %} {{ NOME_EMPRESA }}</span>
+    <a class="link-discreto" href="/painel/">Área do funcionário</a>
+  </div>
+</footer>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<script src="{% static 'webchat/inicio.js' %}" defer></script>
+{% endblock %}

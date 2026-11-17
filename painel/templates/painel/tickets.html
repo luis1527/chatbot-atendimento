@@ -1,0 +1,80 @@
+{% extends "painel/base.html" %}
+{% block titulo %}Tickets{% endblock %}
+{% block titulo_topo %}Tickets{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Tickets</h1>
+    <p>Solicitações registradas pelos clientes (pelo bot ou por um atendente).</p>
+  </div>
+</div>
+
+<div class="chips">
+  <a class="chip {% if not filtros.status %}ativo{% endif %}" href="?">Todos</a>
+  <a class="chip {% if filtros.status == 'abertos' %}ativo{% endif %}" href="?status=abertos">Pendentes</a>
+  {% for valor, rotulo, total in status_chips %}
+    <a class="chip {% if filtros.status == valor %}ativo{% endif %}" href="?status={{ valor }}">
+      {{ rotulo }} <span class="badge">{{ total }}</span>
+    </a>
+  {% endfor %}
+</div>
+
+<div class="cartao">
+  <form class="filtros" method="get">
+    <input type="search" name="q" value="{{ filtros.q }}" placeholder="Buscar por protocolo, assunto ou cliente…">
+    <select name="status">
+      <option value="">Status: todos</option>
+      <option value="abertos" {% if filtros.status == 'abertos' %}selected{% endif %}>Pendentes (aberto + em andamento)</option>
+      {% for valor, rotulo in status_choices %}<option value="{{ valor }}" {% if filtros.status == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+    </select>
+    <select name="prioridade">
+      <option value="">Prioridade: todas</option>
+      {% for valor, rotulo in prioridade_choices %}<option value="{{ valor }}" {% if filtros.prioridade == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+    </select>
+    <select name="categoria">
+      <option value="">Categoria: todas</option>
+      {% for valor, rotulo in categoria_choices %}<option value="{{ valor }}" {% if filtros.categoria == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+    </select>
+    <select name="responsavel">
+      <option value="">Responsável: qualquer</option>
+      <option value="eu" {% if filtros.responsavel == 'eu' %}selected{% endif %}>Comigo</option>
+      <option value="ninguem" {% if filtros.responsavel == 'ninguem' %}selected{% endif %}>Sem responsável</option>
+    </select>
+    <button class="btn primario" type="submit">Filtrar</button>
+    {% if parametros %}<a class="btn fantasma" href="?">Limpar</a>{% endif %}
+  </form>
+
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead>
+        <tr><th>Protocolo</th><th>Assunto</th><th>Cliente</th><th>Categoria</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Aberto em</th></tr>
+      </thead>
+      <tbody>
+      {% for t in pagina %}
+        <tr>
+          <td><a class="mono" href="{% url 'painel:ticket_detalhe' t.pk %}"><strong>{{ t.protocolo }}</strong></a></td>
+          <td><a href="{% url 'painel:ticket_detalhe' t.pk %}" style="color:inherit">{{ t.assunto|truncatechars:60 }}</a></td>
+          <td>{{ t.contato.nome }} <span class="badge {% if t.contato.canal == 'telegram' %}telegram{% else %}web{% endif %} p">{{ t.contato.get_canal_display }}</span></td>
+          <td>{{ t.get_categoria_display }}</td>
+          <td><span class="prio-{{ t.prioridade }}">{{ t.get_prioridade_display }}</span></td>
+          <td>{% include "painel/_status_ticket.html" with status=t.status rotulo=t.get_status_display %}</td>
+          <td>{{ t.responsavel|default:"—" }}</td>
+          <td class="suave">{{ t.criado_em|date:"d/m/Y H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="vazio-msg">Nenhum ticket encontrado com esses filtros.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagina.paginator.num_pages > 1 %}
+  <div class="paginacao">
+    <span class="suave pequeno">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} · {{ pagina.paginator.count }} tickets</span>
+    {% if pagina.has_previous %}<a class="btn p" href="?{{ parametros }}&pagina={{ pagina.previous_page_number }}">← Anterior</a>{% endif %}
+    {% if pagina.has_next %}<a class="btn p" href="?{{ parametros }}&pagina={{ pagina.next_page_number }}">Próxima →</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -9,6 +9,7 @@ from datetime import timedelta
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from core.models import (
@@ -130,6 +131,14 @@ class Command(BaseCommand):
 
     def _conversas(self):
         """Histórico fictício dos últimos 14 dias, para o dashboard ter o que mostrar."""
+        # Idempotente: se as conversas fictícias já existem, não cria de novo
+        # (senão o telegram_chat_id único dos contatos de teste estouraria).
+        ja_existe = Contato.objects.filter(
+            Q(telegram_chat_id__gte=900000000, telegram_chat_id__lt=900000040) | Q(web_sessao__startswith="demo-")
+        ).exists()
+        if ja_existe:
+            self.stdout.write("  conversas fictícias já existem (nada a fazer)")
+            return
         random.seed(42)
         atendentes = list(Usuario.objects.filter(cargo=Usuario.Cargo.ATENDENTE))
         intencoes = {i.slug: i for i in Intencao.objects.all()}

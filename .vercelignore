@@ -1,0 +1,8 @@
+# Não sobe para a Vercel
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+db.sqlite3
+staticfiles/

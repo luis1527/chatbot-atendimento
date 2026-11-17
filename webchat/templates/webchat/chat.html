@@ -1,0 +1,74 @@
+{% extends "webchat/base.html" %}
+{% load static %}
+{% block titulo %}Chat — {{ NOME_EMPRESA }}{% endblock %}
+{% block body_class %}pagina-chat{% endblock %}
+{% block corpo %}
+<div class="chat" id="chat"
+     data-precisa-nome="{{ precisa_nome|yesno:'1,0' }}"
+     data-limite="{{ limite_texto }}"
+     data-url-iniciar="{% url 'webchat:api_iniciar' %}"
+     data-url-enviar="{% url 'webchat:api_enviar' %}"
+     data-url-mensagens="{% url 'webchat:api_mensagens' %}"
+     data-url-nova="{% url 'webchat:api_nova' %}"
+     data-csrf="{{ csrf_token }}">
+
+  <header class="chat__topo">
+    <a class="chat__voltar" href="{% url 'webchat:inicio' %}" aria-label="Voltar para a página inicial">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M15.4 6.4 14 5l-7 7 7 7 1.4-1.4L9.8 12z"/></svg>
+    </a>
+    <div class="chat__avatar" aria-hidden="true">🤖</div>
+    <div class="chat__titulo">
+      <h1>{{ NOME_EMPRESA }}</h1>
+      <p class="chat__status" id="chat-status" role="status" aria-live="polite">
+        <span class="ponto ponto--bot" id="chat-status-ponto" aria-hidden="true"></span>
+        <span id="chat-status-texto">Assistente virtual</span>
+      </p>
+    </div>
+    <div class="menu">
+      <button type="button" class="botao-icone" id="menu-botao" aria-haspopup="true" aria-expanded="false" aria-controls="menu-lista" aria-label="Menu">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+      </button>
+      <ul class="menu__lista" id="menu-lista" role="menu" hidden>
+        <li role="none"><button type="button" role="menuitem" id="acao-nova">🔄 Nova conversa</button></li>
+        <li role="none"><a role="menuitem" href="{{ TELEGRAM_LINK }}" target="_blank" rel="noopener">✈️ Continuar no Telegram</a></li>
+        <li role="none"><a role="menuitem" href="{% url 'webchat:inicio' %}">🏠 Página inicial</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main class="chat__mensagens" id="conteudo" tabindex="-1">
+    <ol class="lista-mensagens" id="lista-mensagens" aria-live="polite" aria-label="Mensagens da conversa"></ol>
+    <div class="digitando" id="digitando" hidden aria-live="polite">
+      <span class="bolha-avatar" aria-hidden="true">🤖</span>
+      <span class="digitando__bolha"><span class="sr-only">O assistente está digitando…</span><i></i><i></i><i></i></span>
+    </div>
+  </main>
+
+  <div class="chat__aviso" id="chat-aviso" role="alert" hidden></div>
+
+  <form class="chat__entrada" id="form-envio" autocomplete="off">
+    <label for="campo-texto" class="sr-only">Digite sua mensagem</label>
+    <textarea id="campo-texto" rows="1" maxlength="{{ limite_texto }}" placeholder="Digite sua mensagem…" enterkeyhint="send"></textarea>
+    <button type="submit" class="botao-enviar" id="botao-enviar" aria-label="Enviar mensagem">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
+    </button>
+  </form>
+
+  <div class="modal" id="modal-nome" hidden>
+    <form class="modal__caixa" id="form-nome" aria-labelledby="modal-nome-titulo">
+      <div class="modal__icone" aria-hidden="true">👋</div>
+      <h2 id="modal-nome-titulo">Olá! Como podemos te chamar?</h2>
+      <p>Assim o atendente sabe com quem está falando. É opcional.</p>
+      <label for="campo-nome">Seu nome</label>
+      <input id="campo-nome" name="nome" type="text" maxlength="60" autocomplete="given-name" placeholder="Ex.: Maria">
+      <div class="modal__acoes">
+        <button type="button" class="botao botao--fantasma" id="pular-nome">Pular</button>
+        <button type="submit" class="botao botao--primario">Começar conversa</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'webchat/chat.js' %}" defer></script>
+{% endblock %}

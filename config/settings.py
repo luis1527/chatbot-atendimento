@@ -73,13 +73,25 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Banco: PostgreSQL via DATABASE_URL. Sem DATABASE_URL, cai para SQLite
 # (assim dá para rodar local sem instalar nada).
-DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=0 if os.getenv("VERCEL") else 60,
-        ssl_require=False,
-    )
-}
+# A integração Neon da Vercel injeta DATABASE_URL (pooled) e também as
+# variáveis legadas POSTGRES_* — aceitamos POSTGRES_URL como alternativa.
+EM_PRODUCAO = bool(os.getenv("VERCEL")) or not DEBUG
+_url_banco = (os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL") or "").strip()
+if _url_banco:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            _url_banco,
+            # Serverless: sem conexão persistente (o pooler do Neon cuida disso).
+            conn_max_age=0 if os.getenv("VERCEL") else 60,
+            # Em produção exige SSL (sslmode=require); local não precisa.
+            ssl_require=EM_PRODUCAO and not _url_banco.startswith("sqlite"),
+        )
+    }
+    # O pooler do Neon (PgBouncer, modo transação) não suporta cursores do lado do servidor.
+    if "-pooler" in _url_banco:
+        DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+else:
+    DATABASES = {"default": dj_database_url.parse(f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
 
 AUTH_USER_MODEL = "core.Usuario"
 
@@ -117,7 +129,7 @@ TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "felipeprojeto_bot")
 TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "troque-este-segredo")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
 
 NOME_EMPRESA = os.getenv("NOME_EMPRESA", "Empresa Teste")
 

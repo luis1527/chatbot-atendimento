@@ -1,0 +1,43 @@
+{% extends "painel/base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block titulo_topo %}{{ titulo }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>{{ titulo }}</h1>
+  <div class="espaco"></div>
+  <a class="btn" href="{{ voltar }}">← Voltar</a>
+</div>
+
+<div class="cartao form-estreito">
+  <form method="post" class="cartao-corpo" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<ul class="mensagens-flash"><li class="error">{{ form.non_field_errors|join:" " }}</li></ul>{% endif %}
+    {% for campo in form %}
+      {% if campo.widget_type == "checkbox" %}
+      <div class="campo campo-check">
+        {{ campo }} <label for="{{ campo.id_for_label }}" style="font-weight:500">{{ campo.label }}</label>
+      </div>
+      {% else %}
+      <div class="campo">
+        <label for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} *{% endif %}</label>
+        {{ campo }}
+        {% if campo.help_text %}<span class="ajuda">{{ campo.help_text }}</span>{% endif %}
+        {% for e in campo.errors %}<span class="erro">{{ e }}</span>{% endfor %}
+      </div>
+      {% endif %}
+    {% endfor %}
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn primario" type="submit">Salvar</button>
+      <a class="btn fantasma" href="{{ voltar }}">Cancelar</a>
+    </div>
+  </form>
+  {% if excluir_url %}
+  <form method="post" action="{{ excluir_url }}" class="cartao-corpo" style="border-top:1px solid var(--borda)"
+        onsubmit="return confirm('Excluir definitivamente? Essa ação não pode ser desfeita.')">
+    {% csrf_token %}
+    <button class="btn perigo" type="submit">🗑 Excluir</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

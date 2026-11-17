@@ -1,0 +1,72 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar · {{ NOME_EMPRESA }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'painel/painel.css' %}">
+</head>
+<body>
+<div class="pagina-login">
+  <section class="login-arte">
+    <div class="marca" style="padding:0;border:0;height:auto">
+      <span class="logo">💬</span>
+      <span>{{ NOME_EMPRESA }}<small style="color:#c7d2fe">Painel de atendimento</small></span>
+    </div>
+    <div>
+      <h1>Atenda seus clientes do Telegram e do site em um só lugar.</h1>
+      <p>O bot responde as dúvidas comuns. Quando o cliente pede um atendente, a conversa cai na fila e você assume por aqui.</p>
+    </div>
+    <div class="bolhas">
+      <div class="bolha">Oi! Quero falar com um atendente 🙋</div>
+      <div class="bolha dir">✅ Ana entrou na conversa e vai te atender agora.</div>
+      <div class="bolha">Obrigado! Meu boleto não chegou…</div>
+    </div>
+  </section>
+
+  <section class="login-caixa">
+    <form method="post" class="login-form" novalidate>
+      {% csrf_token %}
+      <h2>Entrar no painel</h2>
+      <p class="sub">Use o login que o supervisor criou para você.</p>
+
+      {% if form.non_field_errors %}
+      <ul class="mensagens-flash"><li class="error">{{ form.non_field_errors|join:" " }}</li></ul>
+      {% endif %}
+
+      <div class="campo">
+        <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+        {{ form.username }}
+        {% for e in form.username.errors %}<span class="erro">{{ e }}</span>{% endfor %}
+      </div>
+      <div class="campo">
+        <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+        {{ form.password }}
+        {% for e in form.password.errors %}<span class="erro">{{ e }}</span>{% endfor %}
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="btn primario">Entrar</button>
+
+      <div class="quadro-teste">
+        <strong>🧪 Usuários de teste (protótipo)</strong>
+        <code data-u="atendente1">atendente1</code> / <code data-u="atendente2">atendente2</code> /
+        <code data-u="supervisor">supervisor</code> — senha <code data-s="1">teste123</code>
+        <div class="pequeno" style="margin-top:6px">Clique num usuário para preencher.</div>
+      </div>
+    </form>
+  </section>
+</div>
+<script>
+  document.querySelectorAll(".quadro-teste code[data-u]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      document.getElementById("id_username").value = el.dataset.u;
+      document.getElementById("id_password").value = "teste123";
+      document.getElementById("id_password").focus();
+    });
+  });
+</script>
+</body>
+</html>
