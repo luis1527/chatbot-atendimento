@@ -39,7 +39,7 @@
       <tbody>
       {% for c in pagina %}
         <tr>
-          <td><a class="mono" href="{% url 'chaves:chave' c.pk %}"><strong>{{ c.codigo }}</strong></a>{% if c.descricao %}<div class="pequeno suave">{{ c.descricao }}</div>{% endif %}</td>
+          <td style="white-space:nowrap"><a class="mono" href="{% url 'chaves:chave' c.pk %}"><strong>{{ c.codigo }}</strong></a>{% if c.descricao %}<div class="pequeno suave">{{ c.descricao }}</div>{% endif %}</td>
           <td>{{ c.sala.nome }} <span class="suave pequeno">{{ c.sala.codigo }}</span></td>
           <td>{% include "painel/chaves/_status_chave.html" with status=c.status %}</td>
           <td>{% if c.aberto %}{{ c.aberto.usuario.nome }} <span class="suave pequeno">{{ c.aberto.usuario.get_tipo_display }}</span>{% else %}<span class="suave">—</span>{% endif %}</td>

@@ -27,7 +27,7 @@
       <tbody>
       {% for e in pagina %}
         <tr>
-          <td><a class="mono" href="{% url 'chaves:chave' e.chave_id %}"><strong>{{ e.chave.codigo }}</strong></a><div class="pequeno suave">{{ e.chave.sala.nome }}</div></td>
+          <td style="white-space:nowrap"><a class="mono" href="{% url 'chaves:chave' e.chave_id %}"><strong>{{ e.chave.codigo }}</strong></a><div class="pequeno suave">{{ e.chave.sala.nome }}</div></td>
           <td>{{ e.usuario.nome }}<div class="pequeno suave">{{ e.usuario.get_tipo_display }} · {{ e.usuario.matricula }}</div></td>
           <td class="suave">{{ e.retirada_em|date:"d/m/Y H:i" }}</td>
           <td>{{ e.devolucao_prevista|date:"d/m/Y H:i" }}</td>

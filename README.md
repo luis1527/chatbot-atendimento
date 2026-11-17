@@ -226,6 +226,25 @@ Documentação completa em [`docs/modelo-de-dados.md`](docs/modelo-de-dados.md):
 
 ---
 
+## Controle de chaves
+
+Módulo do mesmo projeto (app `chaves`) para controlar o empréstimo das chaves das salas. Ele cobre as entidades **Usuário, Sala, Chave, Empréstimo e Movimentação**. Usa o mesmo login do painel, e o funcionário logado fica registrado como operador de cada operação.
+
+- **Telas** (menu "Controle de chaves" no painel):
+  - `/painel/chaves/`: visão geral, com contadores (disponíveis, emprestadas, atrasadas), lista de chaves, emprestar e devolver.
+  - `/painel/chaves/emprestimos/`: empréstimos em aberto, atrasados e devolvidos.
+  - `/painel/chaves/salas/` e `/painel/chaves/usuarios/`: cadastros.
+  - `/painel/chaves/movimentacoes/`: histórico completo, que não pode ser editado.
+- **Dados de exemplo:** `python manage.py popular_chaves --historico` cria salas, chaves e usuários de teste, além de empréstimos passados e em aberto (inclusive um atrasado).
+- **Documentação de dados:**
+  - [`docs/modelo-de-dados-chaves.md`](docs/modelo-de-dados-chaves.md): entidades, campos, PK/FK/obrigatórios, relacionamentos e regras.
+  - Diagrama ER: [`docs/diagrama-er-chaves.drawio`](docs/diagrama-er-chaves.drawio), também em [`.png`](docs/diagrama-er-chaves.png) e [`.svg`](docs/diagrama-er-chaves.svg).
+  - DDL: [`docs/schema-chaves.sql`](docs/schema-chaves.sql).
+
+![Diagrama ER — Controle de chaves](docs/diagrama-er-chaves.png)
+
+---
+
 ## Roteiro de apresentação (5 min)
 
 | Tempo | O que mostrar | Mensagem |
