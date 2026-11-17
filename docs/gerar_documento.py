@@ -40,7 +40,7 @@ FUNDO_ZEBRA = "F5F5FB"
 
 LARGURA_UTIL = Cm(21.0 - 2.2 - 2.2)  # A4 menos as margens laterais
 
-SITE = "https://chatbot-atendimento-tau.vercel.app"
+SITE = "https://chatbot-atendimento-projeto-25a4.vercel.app"
 
 
 # ---------------------------------------------------------------------------
