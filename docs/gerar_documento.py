@@ -29,6 +29,7 @@ from docx.shared import Cm, Pt, RGBColor
 DOCS = Path(__file__).resolve().parent
 SAIDA = DOCS / "Entrega - Chatbot de Atendimento.docx"
 DIAGRAMA = DOCS / "diagrama-er.png"
+DIAGRAMA_CHAVES = DOCS / "diagrama-er-chaves.png"
 
 FONTE = "Calibri"
 DESTAQUE = RGBColor(0x4F, 0x46, 0xE5)
@@ -357,6 +358,7 @@ def acesso_rapido(doc):
         ("Site", link_celula(SITE)),
         ("Painel dos funcionários", link_celula(f"{SITE}/painel/")),
         ("Chat pelo site", link_celula(f"{SITE}/chat/")),
+        ("Controle de chaves", link_celula(f"{SITE}/painel/chaves/", extra="  (com login)")),
         ("Bot no Telegram", link_celula("https://t.me/felipeprojeto_bot", extra="  (@felipeprojeto_bot)")),
         ("Código-fonte (GitHub, público)", link_celula("https://github.com/luis1527/chatbot-atendimento")),
         ("Status do servidor", link_celula(f"{SITE}/saude/")),
@@ -431,7 +433,8 @@ def como_funciona(doc):
         ("Django na Vercel",
          "Recebe o webhook, decide a resposta (menu, FAQ, IA, ticket, fila) e envia ao Telegram. Também "
          "serve o site, o chat do site e o painel dos funcionários."),
-        ("PostgreSQL no Neon", "Guarda clientes, conversas, mensagens, tickets, FAQ e funcionários (9 tabelas)."),
+        ("PostgreSQL no Neon", "Guarda clientes, conversas, mensagens, tickets, FAQ e funcionários (9 tabelas) e o "
+                              "controle de chaves (mais 5 tabelas)."),
         ("Google Gemini", "Interpreta a mensagem (intenção e dados) e redige a resposta a partir do FAQ."),
         ("Painel web", "Vários funcionários, cada um com seu login, atendem pelo mesmo bot."),
     ], (4.6, 12.0), primeira_negrito=True)
@@ -470,6 +473,8 @@ def como_usar(doc):
         "**Tickets**: veja os tickets, mude o status e registre a resposta; ao resolver, o cliente é avisado.",
         "**Dashboard**: números de atendimento, satisfação, intenções e tempo na fila.",
         "**FAQ**: crie, edite, ative ou desative perguntas e categorias usadas pelo bot.",
+        "**Controle de chaves**: emprestar e devolver chaves, cadastrar salas, chaves e usuários e ver o "
+        "histórico de movimentações (seção 7).",
         "**Funcionários** (só supervisor): cadastre, edite, desative e troque a senha dos funcionários.",
     ])
 
@@ -547,8 +552,85 @@ def banco(doc):
     ], (5.6, 11.0), tamanho=10)
 
 
+def controle_chaves(doc):
+    doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+    doc.add_heading("7. Controle de chaves (checklist do squad de dados)", level=1)
+    par(doc, "Modelagem pedida no checklist do squad: um sistema de empréstimo das chaves das salas. Foi "
+             "implementado no mesmo projeto (app `chaves`), com as tabelas no mesmo PostgreSQL e as telas "
+             "dentro do painel, no menu **Controle de chaves**, com o mesmo login dos funcionários.")
+
+    doc.add_heading("Checklist", level=2)
+    tabela(doc, ("Item do checklist", "Situação"), [
+        ("Identificar as entidades Usuário, Sala, Chave, Empréstimo e Movimentação",
+         "✅ Cada entidade é uma tabela: `chaves_usuario`, `chaves_sala`, `chaves_chave`, "
+         "`chaves_emprestimo`, `chaves_movimentacao`."),
+        ("Definir os campos principais de cada entidade", "✅ Tabela abaixo e dicionário em `docs/modelo-de-dados-chaves.md`."),
+        ("Desenhar os relacionamentos no draw.io", "✅ `docs/diagrama-er-chaves.drawio` (Figura 2), com cardinalidade em pé-de-galinha."),
+        ("Definir chaves primárias, estrangeiras e campos obrigatórios",
+         "✅ Marcados no diagrama (PK, FK, UQ, CK, NN) e no `docs/schema-chaves.sql`."),
+        ("Enviar o diagrama para revisão com o back-end", "✅ Diagrama, SQL e dicionário prontos para revisão; o back-end já está implementado e testado."),
+    ], (6.6, 10.0), tamanho=9.5, primeira_negrito=True)
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_after = Pt(2)
+    p.add_run().add_picture(str(DIAGRAMA_CHAVES), width=LARGURA_UTIL)
+    par(doc, "Figura 2: diagrama ER do controle de chaves (editável em docs/diagrama-er-chaves.drawio).",
+        tamanho=9, cor=CINZA, italico=True)
+
+    doc.add_heading("As 5 entidades", level=2)
+    tabela(doc, ("Entidade", "Campos principais", "Relacionamentos"), [
+        ("Usuário", "nome, matrícula (única), tipo (aluno, professor, servidor, visitante), e-mail, telefone, ativo",
+         "1 usuário → N empréstimos e N movimentações"),
+        ("Sala", "código (único, ex.: B-204), nome, bloco, andar, tipo, capacidade, ativa",
+         "1 sala → N chaves (cópias)"),
+        ("Chave", "sala (FK), código (único, ex.: B-204-01), descrição, status (disponível, emprestada, manutenção, perdida)",
+         "1 chave → N empréstimos e N movimentações"),
+        ("Empréstimo", "chave (FK), usuário (FK), registrado por (FK funcionário), retirada, devolução prevista, "
+                       "devolvido em, recebido por (FK funcionário), observação",
+         "1 empréstimo → 2 movimentações (retirada e devolução)"),
+        ("Movimentação", "chave (FK), empréstimo (FK, opcional), usuário (FK, opcional), operador (FK funcionário), "
+                         "tipo, data/hora, observação",
+         "Histórico de auditoria; não é editado"),
+    ], (2.8, 8.6, 5.2), tamanho=9.5, primeira_negrito=True)
+    par(doc, "“Usuário” é a pessoa que retira a chave e não precisa de login. Quem registra no sistema é o "
+             "funcionário do painel (`core_usuario`), que aparece como operador.", tamanho=10, cor=CINZA)
+
+    doc.add_heading("Regras de integridade no banco", level=2)
+    tabela(doc, ("Regra", "O que garante"), [
+        ("Um empréstimo aberto por chave (UNIQUE parcial)", "A mesma chave nunca fica emprestada para duas pessoas ao mesmo tempo."),
+        ("Datas coerentes (CHECK)", "Devolução prevista depois da retirada; devolução real nunca antes da retirada."),
+        ("Devolução completa (CHECK)", "Data de devolução e funcionário que recebeu são preenchidos juntos."),
+        ("Movimentação ligada ao empréstimo (CHECK)", "Retirada e devolução sempre apontam o empréstimo e a pessoa."),
+        ("Valores válidos (CHECK)", "Status da chave, tipo de usuário e tipo de movimentação só aceitam a lista definida."),
+        ("Sem duplicidade (UNIQUE)", "Código da sala, código da chave e matrícula não se repetem."),
+        ("Sem exclusão em cascata (FK PROTECT)", "Sala com chave, chave com empréstimo e usuário com empréstimo não podem ser apagados: o histórico fica preservado."),
+    ], (6.0, 10.6), tamanho=9.5, primeira_negrito=True)
+    par(doc, "No código, emprestar trava a linha da chave (`SELECT … FOR UPDATE`): se dois funcionários "
+             "tentarem emprestar a mesma chave ao mesmo tempo, só um consegue. Usuário inativo, sala desativada "
+             "e chave em manutenção ou perdida também são bloqueados.", tamanho=10)
+
+    doc.add_heading("Telas no painel", level=2)
+    tabela(doc, ("Aba", "O que faz"), [
+        ("Chaves", "Indicadores (disponíveis, emprestadas, atrasadas, indisponíveis), busca e os botões Emprestar e Devolver."),
+        ("Empréstimos", "Em aberto, atrasados, devolvidos ou todos; quem retirou, prazos e quem registrou."),
+        ("Salas e Usuários", "Cadastro e edição."),
+        ("Movimentações", "Histórico completo de cada chave (retirada, devolução, manutenção, perda, liberação)."),
+        ("Página da chave", "Histórico daquela chave e ações de manutenção, perda e liberação."),
+    ], (4.0, 12.6), tamanho=9.5, primeira_negrito=True)
+
+    doc.add_heading("Arquivos", level=2)
+    tabela(doc, ("Arquivo", "Conteúdo"), [
+        ("`docs/diagrama-er-chaves.drawio`", "Diagrama ER editável (abre em app.diagrams.net)."),
+        ("`docs/diagrama-er-chaves.png`", "Imagem do diagrama."),
+        ("`docs/schema-chaves.sql`", "DDL PostgreSQL das 5 tabelas, gerado pelo Django."),
+        ("`docs/modelo-de-dados-chaves.md`", "Dicionário de dados e regras, item por item do checklist."),
+        ("`chaves/models.py`", "Modelos Django (fonte das tabelas)."),
+    ], (6.0, 10.6), tamanho=10)
+
+
 def tecnologias(doc):
-    doc.add_heading("7. Tecnologias", level=1)
+    doc.add_heading("8. Tecnologias", level=1)
     tabela(doc, ("Tecnologia", "Uso"), [
         ("Python 3.12", "Linguagem do projeto."),
         ("Django 5.2", "Servidor web: bot, site, painel e /admin/."),
@@ -556,12 +638,12 @@ def tecnologias(doc):
         ("Vercel", "Hospedagem (o app roda como uma Vercel Function)."),
         ("API de Bots do Telegram", "Recebimento por webhook e envio das mensagens."),
         ("Google Gemini", "Identificação de intenção e redação das respostas."),
-        ("Testes automatizados", "105 testes (banco e regras, bot, painel e chat do site)."),
+        ("Testes automatizados", "122 testes (banco e regras, bot, painel, chat do site e controle de chaves)."),
     ], (5.0, 11.6), primeira_negrito=True)
 
 
 def roteiro(doc):
-    doc.add_heading("8. Roteiro de apresentação (5 min)", level=1)
+    doc.add_heading("9. Roteiro de apresentação (5 min)", level=1)
     tabela(doc, ("Tempo", "O que mostrar", "Mensagem"), [
         ("0:00–0:40", "Visão geral da arquitetura (seção 4).",
          "Um bot, dois canais (Telegram e site), vários atendentes, um banco PostgreSQL."),
@@ -575,13 +657,16 @@ def roteiro(doc):
          "Modelagem, chaves, integridade e consultas: a entrega do squad de dados."),
         ("4:20–5:00", "Dashboard: satisfação, intenções, tempo na fila. Fechar com os testes automatizados passando.",
          "Relatórios e qualidade."),
+        ("extra", "Controle de chaves: diagrama ER das 5 entidades; no painel, emprestar uma chave, tentar "
+                  "emprestar a mesma de novo (bloqueado), devolver e mostrar a movimentação registrada.",
+         "Checklist do squad de dados: entidades, PK/FK, obrigatórios e regras no banco."),
     ], (2.2, 8.6, 5.8), tamanho=9.5)
     par(doc, "Dica: antes de apresentar, deixe o painel logado nos dois navegadores e confira se o dashboard "
              "tem dados (o comando `popular_demo --conversas` cria conversas fictícias).", tamanho=10, cor=CINZA)
 
 
 def limitacoes(doc):
-    doc.add_heading("9. Limitações do protótipo", level=1)
+    doc.add_heading("10. Limitações do protótipo", level=1)
     for texto in (
         "Só texto: o bot não processa áudio, foto ou figurinha; quando recebe um, pede que o cliente escreva.",
         "O “tempo real” do painel é feito por atualização automática a cada 2–3 segundos (não há conexão "
@@ -595,6 +680,8 @@ def limitacoes(doc):
 
 # ---------------------------------------------------------------------------
 def main():
+    if not DIAGRAMA_CHAVES.exists():
+        raise SystemExit(f"Imagem não encontrada: {DIAGRAMA_CHAVES}")
     if not DIAGRAMA.exists():
         raise SystemExit(f"Imagem não encontrada: {DIAGRAMA}")
 
@@ -620,6 +707,7 @@ def main():
     como_funciona(doc)
     como_usar(doc)
     banco(doc)
+    controle_chaves(doc)
     tecnologias(doc)
     roteiro(doc)
     limitacoes(doc)
