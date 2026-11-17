@@ -437,6 +437,18 @@ class ClienteGeminiTests(TestCase):
         self.assertEqual(res["acao"], "mostrar_menu")
         self.assertIn(ia.MODELO_RESERVA, post.call_args_list[1].args[0])
 
+    def test_sobrecarga_503_usa_modelo_alternativo(self):
+        ok = mock.Mock(status_code=200)
+        ok.json.return_value = {"candidates": [{"content": {"parts": [{"text": json.dumps(
+            {"acao": "conversa_livre", "intencao": "saudacao", "confianca": 1, "faq_id": 0, "resposta": "Oi!",
+             "ticket_assunto": "", "ticket_descricao": "", "ticket_categoria": "nenhuma"})}]}}]}
+        sobrecarga = mock.Mock(status_code=503, text="high demand")
+        with mock.patch("bot.ia.time.sleep"), \
+                mock.patch("bot.ia.requests.post", side_effect=[sobrecarga, sobrecarga, ok]) as post:
+            res = ia.interpretar("oi", faqs=[], intencoes=[], categorias=[])
+        self.assertEqual(res["resposta"], "Oi!")
+        self.assertIn(ia.MODELOS_ALTERNATIVOS[0], post.call_args_list[2].args[0])
+
 
 class NlpTests(TestCase):
     def test_normalizar(self):

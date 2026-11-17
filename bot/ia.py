@@ -23,6 +23,8 @@ URL = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generate
 TIMEOUT = 12  # segundos; acima disso o cliente espera demais -> fallback
 # Modelo usado se o configurado (GEMINI_MODEL) não existir mais para a chave (HTTP 404).
 MODELO_RESERVA = "gemini-flash-lite-latest"
+# Tentados em ordem quando o modelo principal está sobrecarregado (503) mesmo após nova tentativa.
+MODELOS_ALTERNATIVOS = ["gemini-3.1-flash-lite", "gemini-flash-latest"]
 _modelo_indisponivel: set[str] = set()  # lembra (por processo) modelos que deram 404
 
 ACOES = [
@@ -114,6 +116,14 @@ def _chamar(sistema: str, prompt: str, *, schema: dict | None = None, max_tokens
             # A API do Gemini às vezes devolve 404/503 de forma intermitente: tenta mais uma vez.
             log.warning("Gemini HTTP %s (%s); tentando de novo.", r.status_code, modelo)
             time.sleep(0.5)
+            r = _post(corpo, modelo)
+        for alternativo in MODELOS_ALTERNATIVOS:
+            # Modelo principal sobrecarregado (503 "high demand"): tenta outro modelo do Gemini.
+            if r.status_code not in (404, 500, 502, 503, 504) or alternativo == modelo:
+                continue
+            log.warning("Gemini HTTP %s (%s); tentando modelo alternativo %s.", r.status_code, modelo, alternativo)
+            modelo = alternativo
+            config["thinkingConfig"] = _config_raciocinio(modelo)
             r = _post(corpo, modelo)
     except requests.RequestException as e:
         log.warning("Gemini indisponível (%s); usando fallback.", e.__class__.__name__)
