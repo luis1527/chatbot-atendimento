@@ -1,0 +1,11 @@
+Declaração de Uso de Inteligência Artificial
+
+ Projeto: Chatbot de Atendimento Automatizado
+
+Durante o desenvolvimento do projeto, foram utilizadas ferramentas de Inteligência Artificial (IA) generativa como apoio à programação, à pesquisa de soluções técnicas, à identificação e correção de erros e à organização da documentação.
+
+A aplicação também utiliza diretamente a IA Google Gemini para interpretar mensagens dos usuários, identificar intenções e gerar respostas contextualizadas com base nas informações disponíveis no sistema. Além disso, conta com regras predefinidas e mecanismos de busca por palavras-chave, permitindo o funcionamento de determinadas funcionalidades sem depender exclusivamente da IA.
+
+As ferramentas de IA utilizadas como apoio ao desenvolvimento tiveram caráter auxiliar, contribuindo para a implementação e o aprimoramento do sistema. A análise das soluções, a validação do funcionamento e a responsabilidade pelo resultado final permanecem sob responsabilidade dos desenvolvedores.
+
+Dessa forma, o uso da Inteligência Artificial ocorreu tanto como ferramenta de suporte ao desenvolvimento quanto como componente funcional da aplicação.
